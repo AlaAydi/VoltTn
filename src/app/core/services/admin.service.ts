@@ -235,6 +235,15 @@ export class AdminService {
     );
   }
 
+  deleteUser(userId: string): void {
+    const user = this.usersSignal().find(u => u.id === userId);
+    if (user) {
+      this.usersSignal.update(users => users.filter(u => u.id !== userId));
+      this.addAuditLog('Suppression compte utilisateur', user.email, 'AVERTISSEMENT');
+      this.notifService.showToast('Compte Supprimé', `Le compte ${user.name} a été supprimé.`, 'INFO');
+    }
+  }
+
   addUser(userData: Partial<User>): void {
     const newUser: User = {
       id: 'usr-' + Date.now(),
