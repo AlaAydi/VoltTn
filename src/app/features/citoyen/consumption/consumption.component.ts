@@ -10,91 +10,227 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
   template: `
     <div class="consumption-page">
       
-      <!-- En-tête Suivi Détaillé -->
-      <div class="cons-header glass-card">
+      <!-- En-tête Suivi Détaillé & Télérelevé STEG -->
+      <div class="cons-header glass-card animate-float">
         <div class="badge-row">
           <span class="glass-badge badge-sky">
             <span class="material-symbols-rounded">monitoring</span>
-            Compteur Télérelevé STEG
+            Compteur Télérelevé STEG N° {{ citizenService.consumption().meterId }}
           </span>
-          <span class="glass-badge badge-sun">Données au 1/4 d'heure</span>
+          <span class="glass-badge badge-sun">Données Quart-Horaires</span>
+          <span class="glass-badge badge-nature">Tarif Basse Tension Bleu</span>
         </div>
-        <h1 class="header-title">Analyse Détaillée de ma Consommation</h1>
+        <h1 class="header-title">Analyse Détaillée de ma Consommation Électrique</h1>
         <p class="header-desc">
-          Comparez votre courbe de charge journalière et observez l'impact des pics de chaleur estivaux par rapport aux foyers similaires de votre région.
+          Suivez votre consommation par heure, par jour et sur 12 mois. Comparez votre profil avec la moyenne des foyers similaires de votre gouvernorat et visualisez l'estimation détaillée de votre facture en Dinars Tunisiens (DT).
         </p>
       </div>
 
-      <!-- Métriques de comparaison -->
+      <!-- Métriques de comparaison et KPIs -->
       <div class="comparisons-grid">
         <div class="comp-card glass-card" appTilt3d [maxTilt]="8">
-          <span class="comp-label">Ma Consommation ce Mois</span>
+          <span class="comp-label">Ma Consommation ce Mois (Projetée)</span>
           <div class="comp-val-row">
             <span class="comp-val">{{ citizenService.consumption().monthForecastKwh }}</span>
             <span class="comp-unit">kWh</span>
           </div>
-          <span class="comp-sub">Facture prévisionnelle : ~{{ citizenService.consumption().estimatedBillTnd }} DT</span>
+          <span class="comp-sub">Facture prévisionnelle : <strong>~{{ citizenService.consumption().estimatedBillTnd }} DT</strong></span>
         </div>
 
         <div class="comp-card glass-card" appTilt3d [maxTilt]="8">
-          <span class="comp-label">Moyenne Régionale (Tunis)</span>
+          <span class="comp-label">Moyenne Régionale (Foyers Similaires)</span>
           <div class="comp-val-row">
             <span class="comp-val text-sky">{{ citizenService.consumption().regionalAverageKwh }}</span>
             <span class="comp-unit">kWh</span>
           </div>
-          <span class="comp-sub text-nature font-bold">Vous consommez +11% (climatisations)</span>
+          <span class="comp-sub text-nature font-bold">Écart : +11% (climatisations estivales)</span>
         </div>
 
         <div class="comp-card glass-card" appTilt3d [maxTilt]="8">
           <span class="comp-label">Émissions CO₂ Évitées</span>
           <div class="comp-val-row">
             <span class="comp-val text-nature">{{ citizenService.consumption().co2SavedKg }}</span>
-            <span class="comp-unit">kg</span>
+            <span class="comp-unit">kg CO₂</span>
           </div>
-          <span class="comp-sub">Grâce à l'autoproduction solaire</span>
+          <span class="comp-sub">Grâce à l'autoproduction solaire (24%)</span>
+        </div>
+
+        <div class="comp-card glass-card" appTilt3d [maxTilt]="8">
+          <span class="comp-label">Coût Journalier Moyen</span>
+          <div class="comp-val-row">
+            <span class="comp-val text-sun">{{ (citizenService.consumption().todayKwh * 0.338) | number:'1.2-2' }}</span>
+            <span class="comp-unit">DT / jour</span>
+          </div>
+          <span class="comp-sub">Soit ~{{ (citizenService.consumption().todayKwh) }} kWh consommés</span>
         </div>
       </div>
 
-      <!-- Graphique 12 Mois avec Pic Estival (Juillet / Août en Tunisie) -->
+      <!-- Graphique Interactif avec Onglets Heure, Jour, Mois -->
       <div class="glass-card chart-section">
         <div class="chart-header">
           <div>
-            <h2 class="card-title">Saisonnalité sur 12 Mois (Factures STEG)</h2>
-            <p class="card-sub">Notez le pic important en juillet-août causé par les canicules tunisiennes</p>
+            <h2 class="card-title">Courbes de Charge & Comparaison Temporelle</h2>
+            <p class="card-sub">Visualisez les pics de demande et comparez avec la période précédente</p>
+          </div>
+
+          <div class="chart-tabs">
+            <button 
+              class="tab-btn" 
+              [class.active]="viewMode() === 'hourly'"
+              (click)="viewMode.set('hourly')"
+            >
+              Par Heure (Aujourd'hui)
+            </button>
+            <button 
+              class="tab-btn" 
+              [class.active]="viewMode() === 'daily'"
+              (click)="viewMode.set('daily')"
+            >
+              7 Derniers Jours (vs Semaine Préc.)
+            </button>
+            <button 
+              class="tab-btn" 
+              [class.active]="viewMode() === 'monthly'"
+              (click)="viewMode.set('monthly')"
+            >
+              12 Mois (Factures STEG & Canicule)
+            </button>
           </div>
         </div>
 
         <div class="chart-container">
-          <div class="months-grid-chart">
-            @for (m of citizenService.consumption().monthlyHistory; track m.month) {
-              <div class="month-col">
-                <span class="m-val">{{ m.kwh }} <small>kWh</small></span>
-                <div class="m-track">
-                  <!-- Barre Moyenne Régionale (gris discret) -->
-                  <div 
-                    class="regional-bar" 
-                    [style.height.%]="(m.regionalAverageKwh / 700) * 100"
-                    title="Moyenne Régionale"
-                  ></div>
-                  <!-- Barre Mon Foyer -->
-                  <div 
-                    class="my-bar" 
-                    [class.summer-peak]="m.month === 'Juil' || m.month === 'Août'"
-                    [style.height.%]="(m.kwh / 700) * 100"
-                    title="Ma Consommation"
-                  ></div>
+          @if (viewMode() === 'hourly') {
+            <div class="months-grid-chart">
+              @for (h of citizenService.consumption().hourlyHistory; track h.hour) {
+                <div class="month-col">
+                  <span class="m-val">{{ h.kwh }} <small>kWh</small></span>
+                  <div class="m-track">
+                    <div 
+                      class="my-bar" 
+                      [class.summer-peak]="h.isPeak"
+                      [style.height.%]="(h.kwh / 3.5) * 100"
+                      [title]="h.hour + ' : ' + h.kwh + ' kWh (~' + h.costTnd + ' DT)'"
+                    ></div>
+                  </div>
+                  <span class="m-name">{{ h.hour }}</span>
+                  <span class="m-cost">{{ h.costTnd | number:'1.2-2' }} DT</span>
                 </div>
-                <span class="m-name">{{ m.month }}</span>
-                <span class="m-cost">{{ m.costTnd | number:'1.0-0' }} DT</span>
-              </div>
-            }
-          </div>
+              }
+            </div>
+          } @else if (viewMode() === 'daily') {
+            <div class="months-grid-chart">
+              @for (d of citizenService.consumption().dailyHistory; track d.date) {
+                <div class="month-col">
+                  <span class="m-val">{{ d.kwh }} <small>kWh</small></span>
+                  <div class="m-track">
+                    <!-- Barre semaine précédente -->
+                    <div 
+                      class="regional-bar" 
+                      [style.height.%]="(d.previousWeekKwh / 22) * 100"
+                      [title]="'Semaine précédente : ' + d.previousWeekKwh + ' kWh'"
+                    ></div>
+                    <!-- Barre actuelle -->
+                    <div 
+                      class="my-bar" 
+                      [style.height.%]="(d.kwh / 22) * 100"
+                      [title]="d.dayName + ' ' + d.date + ' : ' + d.kwh + ' kWh'"
+                    ></div>
+                  </div>
+                  <span class="m-name">{{ d.dayName }}</span>
+                  <span class="m-cost">{{ d.costTnd | number:'1.1-1' }} DT</span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="months-grid-chart">
+              @for (m of citizenService.consumption().monthlyHistory; track m.month) {
+                <div class="month-col">
+                  <span class="m-val">{{ m.kwh }} <small>kWh</small></span>
+                  <div class="m-track">
+                    <!-- Barre Moyenne Régionale -->
+                    <div 
+                      class="regional-bar" 
+                      [style.height.%]="(m.regionalAverageKwh / 700) * 100"
+                      [title]="'Moyenne Régionale : ' + m.regionalAverageKwh + ' kWh'"
+                    ></div>
+                    <!-- Barre Mon Foyer -->
+                    <div 
+                      class="my-bar" 
+                      [class.summer-peak]="m.month === 'Juil' || m.month === 'Août'"
+                      [style.height.%]="(m.kwh / 700) * 100"
+                      [title]="m.month + ' : ' + m.kwh + ' kWh'"
+                    ></div>
+                  </div>
+                  <span class="m-name">{{ m.month }}</span>
+                  <span class="m-cost">{{ m.costTnd | number:'1.0-0' }} DT</span>
+                </div>
+              }
+            </div>
+          }
         </div>
 
         <div class="chart-legend">
-          <div class="l-item"><span class="bullet sun"></span> Ma Consommation (DT calculés)</div>
-          <div class="l-item"><span class="bullet coral"></span> Pic Canicule (Juillet & Août)</div>
-          <div class="l-item"><span class="bullet gray"></span> Moyenne Régionale Tunis</div>
+          <div class="l-item"><span class="bullet sun"></span> Ma Consommation Réelle</div>
+          @if (viewMode() === 'monthly') {
+            <div class="l-item"><span class="bullet coral"></span> Pic Canicule Estivale (Juillet/Août en Tunisie)</div>
+            <div class="l-item"><span class="bullet gray"></span> Moyenne Régionale des Foyers Similaires</div>
+          } @else if (viewMode() === 'daily') {
+            <div class="l-item"><span class="bullet gray"></span> Même Jour de la Semaine Précédente</div>
+          } @else {
+            <div class="l-item"><span class="bullet coral"></span> Heure Pleine (19h - 22h)</div>
+          }
+        </div>
+      </div>
+
+      <!-- Décomposition & Estimation de la Facture STEG -->
+      <div class="bill-breakdown-card glass-card">
+        <div class="bill-header">
+          <div>
+            <h2 class="card-title">Décomposition de la Facture Estimée (Tranches STEG)</h2>
+            <p class="card-sub">Application des tarifs réglementaires de la STEG pour l'électricité basse tension</p>
+          </div>
+          <div class="bill-total-badge">
+            <span class="b-lbl">Total Estimé :</span>
+            <span class="b-val">{{ citizenService.consumption().estimatedBillTnd | number:'1.2-2' }} DT</span>
+          </div>
+        </div>
+
+        <div class="bill-tiers-grid">
+          <div class="tier-box glass-panel">
+            <div class="t-top">
+              <span class="t-title">Tranche 1 (0 - 50 kWh)</span>
+              <span class="t-rate">0.181 DT / kWh</span>
+            </div>
+            <span class="t-conso">50 kWh consommés</span>
+            <strong class="t-cost">9.05 DT</strong>
+          </div>
+
+          <div class="tier-box glass-panel">
+            <div class="t-top">
+              <span class="t-title">Tranche 2 (51 - 100 kWh)</span>
+              <span class="t-rate">0.223 DT / kWh</span>
+            </div>
+            <span class="t-conso">50 kWh consommés</span>
+            <strong class="t-cost">11.15 DT</strong>
+          </div>
+
+          <div class="tier-box glass-panel">
+            <div class="t-top">
+              <span class="t-title">Tranche 3 (101 - 200 kWh)</span>
+              <span class="t-rate">0.338 DT / kWh</span>
+            </div>
+            <span class="t-conso">100 kWh consommés</span>
+            <strong class="t-cost">33.80 DT</strong>
+          </div>
+
+          <div class="tier-box glass-panel">
+            <div class="t-top">
+              <span class="t-title">Tranche 4 (&gt; 200 kWh)</span>
+              <span class="t-rate">0.410 DT / kWh</span>
+            </div>
+            <span class="t-conso">230 kWh (climatisation)</span>
+            <strong class="t-cost text-coral">94.30 DT</strong>
+          </div>
         </div>
       </div>
 
@@ -115,8 +251,9 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
 
     .badge-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
 
     .header-title {
@@ -129,12 +266,12 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
     .header-desc {
       font-size: 14.5px;
       color: var(--text-muted);
-      max-width: 680px;
+      max-width: 720px;
     }
 
     .comparisons-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 18px;
     }
 
@@ -180,11 +317,48 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
     .chart-section {
       padding: 26px;
       border-radius: var(--radius-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .chart-tabs {
+      display: flex;
+      background: rgba(29, 53, 87, 0.06);
+      padding: 4px;
+      border-radius: var(--radius-full);
+      gap: 4px;
+    }
+
+    .tab-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+
+      &.active {
+        background: #FFFFFF;
+        color: var(--text-main);
+        box-shadow: var(--shadow-sm);
+      }
     }
 
     .chart-container {
       height: 280px;
-      margin: 24px 0 16px 0;
+      margin: 16px 0;
     }
 
     .months-grid-chart {
@@ -269,6 +443,7 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
       border-top: 1px solid rgba(29, 53, 87, 0.08);
       font-size: 12px;
       font-weight: 600;
+      flex-wrap: wrap;
     }
 
     .l-item {
@@ -285,8 +460,63 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
       &.coral { background: var(--alert-coral); }
       &.gray { background: rgba(29, 53, 87, 0.2); }
     }
+
+    /* Bill Breakdown */
+    .bill-breakdown-card {
+      padding: 26px;
+      border-radius: var(--radius-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .bill-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .bill-total-badge {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: var(--radius-full);
+      background: var(--sun-light);
+      border: 1px solid var(--sun-gold);
+      .b-lbl { font-size: 12px; color: var(--text-muted); font-weight: 700; }
+      .b-val { font-size: 20px; font-weight: 900; color: #A35C00; }
+    }
+
+    .bill-tiers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .tier-box {
+      padding: 16px;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .t-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      .t-title { font-weight: 800; color: var(--text-main); }
+      .t-rate { color: var(--text-light); }
+    }
+
+    .t-conso { font-size: 12px; color: var(--text-muted); }
+    .t-cost { font-size: 16px; font-weight: 900; color: var(--sun-amber); margin-top: 4px; }
   `]
 })
 export class ConsumptionComponent {
   citizenService = inject(CitizenService);
+  viewMode = signal<'hourly' | 'daily' | 'monthly'>('monthly');
 }
