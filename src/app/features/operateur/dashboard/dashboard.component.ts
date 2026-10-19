@@ -5,19 +5,41 @@ import { RouterModule } from '@angular/router';
 import { ElectricityService } from '../../../core/services/electricity.service';
 import { OutageService } from '../../../core/services/outage.service';
 import { FraudService } from '../../../core/services/fraud.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { SystemSchedulerService } from '../../../core/services/system-scheduler.service';
 import { TunisiaMap3dComponent } from '../../../shared/components/tunisia-map-3d/tunisia-map-3d.component';
+import { TunisiaLeafletMapComponent } from '../../../shared/components/tunisia-leaflet-map/tunisia-leaflet-map.component';
 import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
 import { Governorate } from '../../../models/governorate.model';
+import { OutageReport } from '../../../models/outage.model';
+
+export interface EquipmentRisk {
+  id: string;
+  name: string;
+  type: string;
+  governorate: string;
+  healthIndexPct: number;
+  failureRisk: 'CRITIQUE' | 'MOYEN' | 'FAIBLE';
+  plannedMaintenance: string;
+  recommendation: string;
+}
 
 @Component({
   selector: 'app-operateur-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TunisiaMap3dComponent, Tilt3dDirective],
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    RouterModule, 
+    TunisiaMap3dComponent, 
+    TunisiaLeafletMapComponent, 
+    Tilt3dDirective
+  ],
   template: `
     <div class="operator-dashboard">
       
-      <!-- En-tête Salle de Contrôle Nationale -->
-      <div class="control-header glass-card">
+      <!-- En-tête Salle de Contrôle Nationale Dispatching -->
+      <div class="control-header glass-card animate-float">
         <div class="header-left">
           <div class="badge-row">
             <span class="glass-badge badge-sky">
@@ -25,10 +47,11 @@ import { Governorate } from '../../../models/governorate.model';
               Dispatching National STEG
             </span>
             <span class="glass-badge badge-nature">Fréquence Réseau : 50.02 Hz</span>
+            <span class="glass-badge badge-sun">Modèle IA LightGBM v2.4 Actif</span>
           </div>
-          <h1 class="header-title">Supervision Intelligente du Réseau Tunisien</h1>
+          <h1 class="header-title">Supervision Intelligente du Réseau Électrique Tunisien</h1>
           <p class="header-desc">
-            Surveillance en temps réel des 24 gouvernorats, modèle prédictif LightGBM v2.4 et dispatching automatisé.
+            Surveillance en temps réel des 24 gouvernorats, prévision de charge IA multi-horizons, pilotage des coupures et maintenance prédictive.
           </p>
         </div>
         <div class="header-actions">
@@ -36,16 +59,59 @@ import { Governorate } from '../../../models/governorate.model';
             <span class="material-symbols-rounded">refresh</span>
             <span>Actualiser SCADA</span>
           </button>
-          <a routerLink="/operateur/stats" class="btn-secondary">
+          <button class="btn-secondary" (click)="exportDailyReport()">
             <span class="material-symbols-rounded">file_download</span>
-            <span>Export Rapport</span>
-          </a>
+            <span>Export Rapport Excel</span>
+          </button>
         </div>
+      </div>
+
+      <!-- Navigation par Onglets de la Salle de Contrôle -->
+      <div class="dashboard-tabs-bar glass-card">
+        <button 
+          class="tab-btn" 
+          [class.active]="activeTab() === 'overview'" 
+          (click)="activeTab.set('overview')"
+        >
+          <span class="material-symbols-rounded">monitoring</span>
+          <span>Surveillance Temps Réel & 3D</span>
+        </button>
+        <button 
+          class="tab-btn" 
+          [class.active]="activeTab() === 'forecast'" 
+          (click)="activeTab.set('forecast')"
+        >
+          <span class="material-symbols-rounded">trending_up</span>
+          <span>Prévision de Charge & Scénarios</span>
+        </button>
+        <button 
+          class="tab-btn" 
+          [class.active]="activeTab() === 'dispatching'" 
+          (click)="activeTab.set('dispatching')"
+        >
+          <span class="material-symbols-rounded">map</span>
+          <span>Carte Google Maps & Affectations ({{ outageService.stats().active }})</span>
+        </button>
+        <button 
+          class="tab-btn" 
+          [class.active]="activeTab() === 'maintenance'" 
+          (click)="activeTab.set('maintenance')"
+        >
+          <span class="material-symbols-rounded">build_circle</span>
+          <span>Maintenance & Risques Équipements</span>
+        </button>
+        <button 
+          class="tab-btn" 
+          [class.active]="activeTab() === 'scheduler'" 
+          (click)="activeTab.set('scheduler')"
+        >
+          <span class="material-symbols-rounded">schedule</span>
+          <span>Planificateur Système Automate</span>
+        </button>
       </div>
 
       <!-- 4 Cartes Clés Réseau avec 3D Tilt -->
       <div class="metrics-grid">
-        
         <div class="metric-card glass-card" appTilt3d [maxTilt]="8">
           <div class="card-icon sun">
             <span class="material-symbols-rounded">bolt</span>
@@ -96,7 +162,7 @@ import { Governorate } from '../../../models/governorate.model';
               <span class="m-unit">en cours</span>
             </div>
             <div class="progress-bar-bg">
-              <div class="progress-bar-fill coral" [style.width.%]="(outageService.stats().active / 30) * 100"></div>
+              <div class="progress-bar-fill coral" [style.width.%]="(outageService.stats().active / 20) * 100"></div>
             </div>
             <span class="m-sub">
               {{ outageService.stats().inProgress }} équipes sur site • {{ outageService.stats().totalAffected | number }} abonnés
@@ -122,256 +188,465 @@ import { Governorate } from '../../../models/governorate.model';
             </span>
           </div>
         </div>
-
       </div>
 
-      <!-- Scène 3D Centrale : Carte de la Tunisie en 3D Extrudée -->
-      <div class="map-section glass-card">
-        <div class="section-title-row">
-          <div>
-            <h2 class="card-title">Carte Interactive 3D de la Tunisie</h2>
-            <p class="card-sub">
-              Extrusion 3D par gouvernorat selon la charge électrique. Cliquez sur une région pour inspecter ses postes.
-            </p>
-          </div>
-          <div class="selected-gov-banner" *ngIf="selectedGovernorate()">
-            <span class="pin-icon material-symbols-rounded">location_on</span>
-            <span class="gov-selected-name">{{ selectedGovernorate()?.name }} ({{ selectedGovernorate()?.nameAr }})</span>
-            <span class="gov-selected-load">{{ selectedGovernorate()?.currentLoadMw }} MW / {{ selectedGovernorate()?.capacityMw }} MW</span>
-            <button class="btn-clear" (click)="selectedGovernorate.set(null)">✕</button>
-          </div>
-        </div>
-
-        <!-- Composant Three.js Carte 3D -->
-        <app-tunisia-map-3d 
-          [governorates]="eleService.governorates()"
-          (governorateSelected)="onGovernorateSelected($event)"
-        ></app-tunisia-map-3d>
-      </div>
-
-      <!-- Bloc IA : Prévision de charge & Simulation de Scénarios en direct -->
-      <div class="ai-forecast-grid">
-        
-        <!-- Courbe de charge J+1 / J+7 -->
-        <div class="glass-card forecast-card">
-          <div class="card-header">
+      <!-- ONGLET 1 : SURVEILLANCE TEMPS RÉEL & CARTE 3D THREE.JS -->
+      @if (activeTab() === 'overview') {
+        <div class="map-section glass-card">
+          <div class="section-title-row">
             <div>
-              <h2 class="card-title">Prévision de Charge par IA (Modèle LightGBM)</h2>
-              <span class="card-sub">Courbe réel vs prédit avec intervalle de confiance 95%</span>
+              <h2 class="card-title">Visualisation 3D du Réseau Électrique Tunisien (Three.js)</h2>
+              <p class="card-sub">
+                Extrusion en colonnes 3D selon la charge électrique en temps réel des 24 gouvernorats.
+              </p>
             </div>
-            <div class="metrics-pills">
-              <span class="metric-pill">MAE : <strong>{{ forecastData().metrics.mae }} MW</strong></span>
-              <span class="metric-pill">RMSE : <strong>{{ forecastData().metrics.rmse }} MW</strong></span>
-              <span class="metric-pill">MAPE : <strong>{{ forecastData().metrics.mape }}%</strong></span>
-            </div>
-          </div>
-
-          <!-- Rendu visuel de la courbe de charge -->
-          <div class="forecast-chart-container">
-            <div class="chart-bars">
-              @for (hour of forecastData().labels; track hour; let idx = $index) {
-                <div class="f-col">
-                  <div class="f-track">
-                    <!-- Intervalle de confiance (bande translucide) -->
-                    <div 
-                      class="confidence-band" 
-                      [style.bottom.%]="(forecastData().lowerConfidence[idx] / 5200) * 100"
-                      [style.height.%]="((forecastData().upperConfidence[idx] - forecastData().lowerConfidence[idx]) / 5200) * 100"
-                    ></div>
-                    <!-- Charge réelle -->
-                    <div 
-                      class="actual-bar" 
-                      [style.height.%]="(forecastData().actual[idx] / 5200) * 100"
-                    ></div>
-                    <!-- Prédiction IA (ligne repère dorée) -->
-                    <div 
-                      class="prediction-marker" 
-                      [style.bottom.%]="(forecastData().predicted[idx] / 5200) * 100"
-                    ></div>
-                  </div>
-                  <span class="f-label">{{ hour }}</span>
-                </div>
-              }
+            <div class="selected-gov-banner" *ngIf="selectedGovernorate()">
+              <span class="pin-icon material-symbols-rounded">location_on</span>
+              <span class="gov-selected-name">{{ selectedGovernorate()?.name }} ({{ selectedGovernorate()?.nameAr }})</span>
+              <span class="gov-selected-load">{{ selectedGovernorate()?.currentLoadMw }} MW / {{ selectedGovernorate()?.capacityMw }} MW</span>
+              <button class="btn-clear" (click)="selectedGovernorate.set(null)">✕</button>
             </div>
           </div>
 
-          <div class="chart-legend-row">
-            <div class="legend-item"><span class="bullet sky"></span> Charge Réelle (SCADA)</div>
-            <div class="legend-item"><span class="bullet sun"></span> Prédiction IA (LightGBM)</div>
-            <div class="legend-item"><span class="bullet band"></span> Intervalle de Confiance 95%</div>
-          </div>
+          <!-- Composant Three.js Carte 3D -->
+          <app-tunisia-map-3d 
+            [governorates]="eleService.governorates()"
+            (governorateSelected)="onGovernorateSelected($event)"
+          ></app-tunisia-map-3d>
         </div>
 
-        <!-- Simulateur de Scénarios Interactif (Effet canicule, jour férié) -->
-        <div class="glass-card scenario-card" appTilt3d [maxTilt]="6">
-          <div class="scenario-header">
-            <div class="scenario-icon-box">
-              <span class="material-symbols-rounded">psychology</span>
-            </div>
+        <!-- Tableau des 24 Gouvernorats avec filtres -->
+        <div class="table-card glass-card">
+          <div class="table-header">
             <div>
-              <h3 class="scenario-title">Simulation de Scénarios en Direct</h3>
-              <p class="scenario-sub">Modifiez les facteurs pour tester la résilience du réseau</p>
+              <h2 class="card-title">Statut Réseau des 24 Gouvernorats</h2>
+              <p class="card-sub">Capacités et charges mesurées par le SCADA national</p>
+            </div>
+            <div class="filter-pills">
+              <button class="filter-pill" [class.active]="statusFilter() === 'ALL'" (click)="statusFilter.set('ALL')">Tous (24)</button>
+              <button class="filter-pill coral" [class.active]="statusFilter() === 'SURCHARGE'" (click)="statusFilter.set('SURCHARGE')">Surcharge</button>
+              <button class="filter-pill sun" [class.active]="statusFilter() === 'ELEVEE'" (click)="statusFilter.set('ELEVEE')">Élevée</button>
+              <button class="filter-pill nature" [class.active]="statusFilter() === 'NORMAL'" (click)="statusFilter.set('NORMAL')">Nominal</button>
             </div>
           </div>
 
-          <div class="sliders-list">
-            
-            <div class="slider-group">
-              <div class="slider-label-row">
-                <span>Vague de Chaleur / Canicule :</span>
-                <span class="slider-val" [class.danger]="tempDelta() > 3">+{{ tempDelta() }} °C</span>
-              </div>
-              <input 
-                type="range" 
-                class="range-slider" 
-                min="0" 
-                max="8" 
-                step="1" 
-                [ngModel]="tempDelta()" 
-                (ngModelChange)="onTempDeltaChange($event)"
-              />
-              <span class="slider-hint">Impact climatisation estimé : +{{ tempDelta() * 85 }} MW</span>
-            </div>
-
-            <div class="slider-group">
-              <div class="slider-label-row">
-                <span>Activité Industrielle :</span>
-                <span class="slider-val">{{ industrialActivity() }}%</span>
-              </div>
-              <input 
-                type="range" 
-                class="range-slider" 
-                min="60" 
-                max="120" 
-                step="5" 
-                [ngModel]="industrialActivity()" 
-                (ngModelChange)="onIndustrialChange($event)"
-              />
-            </div>
-
-            <div class="slider-group checkbox-group">
-              <label class="custom-checkbox">
-                <input 
-                  type="checkbox" 
-                  [checked]="isHoliday()" 
-                  (change)="onHolidayToggle($event)"
-                />
-                <span class="checkmark"></span>
-                <span class="checkbox-text">Scénario Jour Férié / Week-end (-350 MW)</span>
-              </label>
-            </div>
-
-          </div>
-
-          <div class="scenario-result-box">
-            <div class="res-title">Impact Global Calculé :</div>
-            <div class="res-diff">
-              Nouvelle charge estimée : <strong>{{ eleService.totalCurrentLoadMw() | number }} MW</strong>
-            </div>
-            <button class="btn-secondary btn-full" (click)="resetScenario()">
-              <span class="material-symbols-rounded">restart_alt</span>
-              <span>Réinitialiser Scénario</span>
-            </button>
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- Tableau des 24 Gouvernorats avec Tri et Statut -->
-      <div class="glass-card table-card">
-        <div class="table-header-row">
-          <div>
-            <h2 class="card-title">État Détaillé des 24 Gouvernorats</h2>
-            <p class="card-sub">Capacités maximales, charges en temps réel et températures mesurées</p>
-          </div>
-          <div class="filter-pills">
-            <button 
-              class="filter-pill" 
-              [class.active]="statusFilter() === 'ALL'" 
-              (click)="statusFilter.set('ALL')"
-            >
-              Tous (24)
-            </button>
-            <button 
-              class="filter-pill coral" 
-              [class.active]="statusFilter() === 'SURCHARGE'" 
-              (click)="statusFilter.set('SURCHARGE')"
-            >
-              Surcharge
-            </button>
-            <button 
-              class="filter-pill sun" 
-              [class.active]="statusFilter() === 'ELEVEE'" 
-              (click)="statusFilter.set('ELEVEE')"
-            >
-              Élevée
-            </button>
-            <button 
-              class="filter-pill nature" 
-              [class.active]="statusFilter() === 'NORMAL'" 
-              (click)="statusFilter.set('NORMAL')"
-            >
-              Nominal
-            </button>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table class="volttn-table">
-            <thead>
-              <tr>
-                <th>Gouvernorat</th>
-                <th>Nom Arabe</th>
-                <th>Capacité Max</th>
-                <th>Charge Actuelle</th>
-                <th>Taux d'Usage</th>
-                <th>Température</th>
-                <th>Statut Réseau</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (gov of filteredGovernorates(); track gov.id) {
-                <tr [class.highlighted]="selectedGovernorate()?.id === gov.id">
-                  <td>
-                    <div class="gov-name-cell">
-                      <span class="material-symbols-rounded gov-icon">pin_drop</span>
-                      <strong>{{ gov.name }}</strong>
-                    </div>
-                  </td>
-                  <td class="text-ar">{{ gov.nameAr }}</td>
-                  <td>{{ gov.capacityMw }} MW</td>
-                  <td><strong>{{ gov.currentLoadMw }} MW</strong></td>
-                  <td>
-                    <div class="usage-bar-wrapper">
-                      <div class="progress-bar-bg mini">
-                        <div 
-                          class="progress-bar-fill" 
-                          [ngClass]="getUsageClass(gov)"
-                          [style.width.%]="(gov.currentLoadMw / gov.capacityMw) * 100"
-                        ></div>
-                      </div>
-                      <span class="usage-text">{{ Math.round((gov.currentLoadMw / gov.capacityMw) * 100) }}%</span>
-                    </div>
-                  </td>
-                  <td>{{ gov.temperatureC }} °C</td>
-                  <td>
-                    <span class="glass-badge" [ngClass]="'badge-' + getBadgeColor(gov.status)">
-                      {{ gov.status }}
-                    </span>
-                  </td>
-                  <td>
-                    <button class="btn-inspect" (click)="selectedGovernorate.set(gov)">
-                      Inspecter 3D
-                    </button>
-                  </td>
+          <div class="table-responsive">
+            <table class="volttn-table">
+              <thead>
+                <tr>
+                  <th>Gouvernorat</th>
+                  <th>Nom Arabe</th>
+                  <th>Capacité Max</th>
+                  <th>Charge Actuelle</th>
+                  <th>Taux d'Usage</th>
+                  <th>Température</th>
+                  <th>Statut Réseau</th>
+                  <th>Action</th>
                 </tr>
-              }
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                @for (gov of filteredGovernorates(); track gov.id) {
+                  <tr [class.highlighted]="selectedGovernorate()?.id === gov.id">
+                    <td>
+                      <div class="gov-name-cell">
+                        <span class="material-symbols-rounded gov-icon">pin_drop</span>
+                        <strong>{{ gov.name }}</strong>
+                      </div>
+                    </td>
+                    <td class="text-ar">{{ gov.nameAr }}</td>
+                    <td>{{ gov.capacityMw }} MW</td>
+                    <td><strong>{{ gov.currentLoadMw }} MW</strong></td>
+                    <td>
+                      <div class="usage-bar-wrapper">
+                        <div class="progress-bar-bg mini">
+                          <div 
+                            class="progress-bar-fill" 
+                            [ngClass]="getUsageClass(gov)"
+                            [style.width.%]="(gov.currentLoadMw / gov.capacityMw) * 100"
+                          ></div>
+                        </div>
+                        <span class="usage-text">{{ Math.round((gov.currentLoadMw / gov.capacityMw) * 100) }}%</span>
+                      </div>
+                    </td>
+                    <td>{{ gov.temperatureC }} °C</td>
+                    <td>
+                      <span class="glass-badge" [ngClass]="'badge-' + getBadgeColor(gov.status)">
+                        {{ gov.status }}
+                      </span>
+                    </td>
+                    <td>
+                      <button class="btn-inspect" (click)="selectedGovernorate.set(gov)">
+                        Inspecter 3D
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      }
+
+      <!-- ONGLET 2 : PRÉVISION DE CHARGE & SCÉNARIOS & ACTIONS RECOMMANDÉES -->
+      @if (activeTab() === 'forecast') {
+        
+        <!-- Recommandations d'Action IA en cas de tension réseau -->
+        <div class="actions-banner glass-card">
+          <div class="action-banner-header">
+            <div class="rec-title-box">
+              <span class="material-symbols-rounded text-sun">auto_fix_high</span>
+              <h2 class="card-title">Recommandations d'Action Générées par l'IA</h2>
+            </div>
+            <span class="glass-badge badge-sun">Algorithme d'Optimisation Heuristique</span>
+          </div>
+
+          <div class="recommendations-grid">
+            <div class="rec-card glass-panel">
+              <div class="rec-top">
+                <span class="material-symbols-rounded rec-icon coral">factory</span>
+                <div>
+                  <h4 class="rec-name">Effacement de Charge Industriel</h4>
+                  <p class="rec-sub">Zones de Mégrine & Sfax (-120 MW)</p>
+                </div>
+              </div>
+              <p class="rec-desc">Notification d'interruption contractuelle aux cimenteries et industries lourdes pour écrêter la pointe de 14h.</p>
+              <button class="btn-primary" (click)="applyRecommendation('EFFACEMENT')">
+                <span>Appliquer l'Effacement (-120 MW)</span>
+              </button>
+            </div>
+
+            <div class="rec-card glass-panel">
+              <div class="rec-top">
+                <span class="material-symbols-rounded rec-icon sky">electric_bolt</span>
+                <div>
+                  <h4 class="rec-name">Enclenchement Turbine à Gaz Ghannouch</h4>
+                  <p class="rec-sub">Démarrage réserve rapide (+200 MW)</p>
+                </div>
+              </div>
+              <p class="rec-desc">Appel de puissance pour compenser le pic thermique et restaurer la marge de réserve nationale au-dessus de 20%.</p>
+              <button class="btn-sky" (click)="applyRecommendation('TURBINE')">
+                <span>Enclencher Réserve (+200 MW)</span>
+              </button>
+            </div>
+
+            <div class="rec-card glass-panel">
+              <div class="rec-top">
+                <span class="material-symbols-rounded rec-icon sun">campaign</span>
+                <div>
+                  <h4 class="rec-name">Alerte Éco-Gestes aux Abonnés Citoyens</h4>
+                  <p class="rec-sub">Diffusion ciblée Grand Tunis & Sahel</p>
+                </div>
+              </div>
+              <p class="rec-desc">Push mobile et SMS invitant 450 000 foyers à décaler leurs appareils et climatiser à 26°C.</p>
+              <button class="btn-secondary" (click)="applyRecommendation('NOTIF')">
+                <span>Diffuser Notification Push</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloc Courbe & Sliders -->
+        <div class="ai-forecast-grid">
+          
+          <!-- Courbe de charge avec Sélecteur de Région et d'Horizon -->
+          <div class="glass-card forecast-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Prévision de Charge (LightGBM)</h2>
+                <div class="forecast-selectors-row">
+                  <select class="form-select mini" [ngModel]="selectedGovForForecast" (ngModelChange)="onForecastGovChange($event)">
+                    <option value="NATIONAL">National (Réseau Tunisie)</option>
+                    @for (gov of eleService.governorates(); track gov.id) {
+                      <option [value]="gov.id">{{ gov.name }} ({{ gov.nameAr }})</option>
+                    }
+                  </select>
+                  <div class="horizon-pills">
+                    <button class="h-pill" [class.active]="selectedHorizon === 'J+1'" (click)="setHorizon('J+1')">Horizon J+1 (24h)</button>
+                    <button class="h-pill" [class.active]="selectedHorizon === 'J+7'" (click)="setHorizon('J+7')">Horizon J+7 (Semaine)</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Indicateurs de précision du modèle ML -->
+              <div class="metrics-pills">
+                <span class="metric-pill">MAE : <strong>{{ forecastData().metrics.mae }} MW</strong></span>
+                <span class="metric-pill">RMSE : <strong>{{ forecastData().metrics.rmse }} MW</strong></span>
+                <span class="metric-pill">MAPE : <strong>{{ forecastData().metrics.mape }}%</strong></span>
+              </div>
+            </div>
+
+            <div class="forecast-chart-container">
+              <div class="chart-bars">
+                @for (hour of forecastData().labels; track hour; let idx = $index) {
+                  <div class="f-col">
+                    <div class="f-track">
+                      <div 
+                        class="confidence-band" 
+                        [style.bottom.%]="(forecastData().lowerConfidence[idx] / 5200) * 100"
+                        [style.height.%]="((forecastData().upperConfidence[idx] - forecastData().lowerConfidence[idx]) / 5200) * 100"
+                      ></div>
+                      <div 
+                        class="actual-bar" 
+                        [style.height.%]="(forecastData().actual[idx] / 5200) * 100"
+                      ></div>
+                      <div 
+                        class="prediction-marker" 
+                        [style.bottom.%]="(forecastData().predicted[idx] / 5200) * 100"
+                      ></div>
+                    </div>
+                    <span class="f-label">{{ hour }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <div class="chart-legend-row">
+              <div class="legend-item"><span class="bullet sky"></span> Charge Réelle (SCADA)</div>
+              <div class="legend-item"><span class="bullet sun"></span> Prédiction IA (LightGBM)</div>
+              <div class="legend-item"><span class="bullet band"></span> Intervalle de Confiance 95%</div>
+            </div>
+          </div>
+
+          <!-- Simulateur de Scénarios en Direct -->
+          <div class="glass-card scenario-card" appTilt3d [maxTilt]="6">
+            <div class="scenario-header">
+              <div class="scenario-icon-box">
+                <span class="material-symbols-rounded">psychology</span>
+              </div>
+              <div>
+                <h3 class="scenario-title">Simulation de Scénarios en Direct</h3>
+                <p class="scenario-sub">Testez la résilience lors des canicules et fêtes</p>
+              </div>
+            </div>
+
+            <div class="sliders-list">
+              <div class="slider-group">
+                <div class="slider-label-row">
+                  <span>Vague de Chaleur / Canicule :</span>
+                  <span class="slider-val" [class.danger]="tempDelta() > 3">+{{ tempDelta() }} °C</span>
+                </div>
+                <input 
+                  type="range" 
+                  class="range-slider" 
+                  min="0" 
+                  max="8" 
+                  step="1" 
+                  [ngModel]="tempDelta()" 
+                  (ngModelChange)="onTempDeltaChange($event)"
+                />
+                <span class="slider-hint">Impact climatisation estimé : +{{ tempDelta() * 85 }} MW</span>
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-label-row">
+                  <span>Activité Industrielle :</span>
+                  <span class="slider-val">{{ industrialActivity() }}%</span>
+                </div>
+                <input 
+                  type="range" 
+                  class="range-slider" 
+                  min="60" 
+                  max="120" 
+                  step="5" 
+                  [ngModel]="industrialActivity()" 
+                  (ngModelChange)="onIndustrialChange($event)"
+                />
+              </div>
+
+              <div class="slider-group checkbox-group">
+                <label class="custom-checkbox">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isHoliday()" 
+                    (change)="onHolidayToggle($event)"
+                  />
+                  <span class="checkmark"></span>
+                  <span class="checkbox-text">Scénario Jour Férié / Aïd (-350 MW)</span>
+                </label>
+              </div>
+
+              <button class="btn-secondary btn-full" (click)="resetScenario()">
+                <span class="material-symbols-rounded">restart_alt</span>
+                <span>Réinitialiser Scénario</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      }
+
+      <!-- ONGLET 3 : DISPATCHING SUR CARTE GOOGLE MAPS & AFFECTATION TECHNICIEN -->
+      @if (activeTab() === 'dispatching') {
+        <div class="dispatching-layout">
+          
+          <div class="map-dispatch-card glass-card">
+            <div class="section-title-row">
+              <div>
+                <h2 class="card-title">Carte des Incidents Réseau & Affectation Terrain</h2>
+                <p class="card-sub">Cliquez sur un incident pour assigner le technicien le plus proche</p>
+              </div>
+            </div>
+
+            <!-- Carte Google Maps Leaflet -->
+            <app-tunisia-leaflet-map
+              [outages]="outageService.outages()"
+              (outageSelected)="onIncidentSelected($event)"
+            ></app-tunisia-leaflet-map>
+          </div>
+
+          <!-- Volet d'Affectation du Technicien le Plus Proche -->
+          <div class="assign-sidebar glass-card">
+            <h3 class="card-title">Dispatching Intervention</h3>
+            
+            @if (selectedIncident(); as inc) {
+              <div class="inc-selected-box glass-panel">
+                <div class="inc-header">
+                  <span class="ref-badge">{{ inc.reference }}</span>
+                  <span class="glass-badge badge-coral">{{ inc.status }}</span>
+                </div>
+                <h4 class="inc-addr">{{ inc.address }}</h4>
+                <p class="inc-gov">{{ inc.district }}, <strong>{{ inc.governorate }}</strong></p>
+                <div class="inc-affected">Abonnés touchés : <strong>{{ inc.affectedCustomers | number }}</strong></div>
+              </div>
+
+              <h4 class="tech-list-title">Techniciens Disponibles à Proximité :</h4>
+              <div class="technicians-list">
+                @for (tech of availableTechnicians; track tech.name) {
+                  <div class="tech-item glass-panel">
+                    <img [src]="tech.avatar" [alt]="tech.name" class="tech-avatar" />
+                    <div class="tech-meta">
+                      <strong class="t-name">{{ tech.name }}</strong>
+                      <span class="t-district">{{ tech.district }} • {{ tech.distanceKm }} km</span>
+                      <span class="t-status">Disponibilité : Immédiate</span>
+                    </div>
+                    <button class="btn-primary btn-mini" (click)="assignToTech(inc, tech.name)">
+                      Affecter
+                    </button>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-selection-box">
+                <span class="material-symbols-rounded">touch_app</span>
+                <p>Sélectionnez un incident sur la carte pour affecter une équipe d'intervention rapide.</p>
+              </div>
+            }
+          </div>
+
+        </div>
+      }
+
+      <!-- ONGLET 4 : MAINTENANCE PRÉVENTIVE & RISQUES ÉQUIPEMENTS (BONUS) -->
+      @if (activeTab() === 'maintenance') {
+        <div class="maintenance-view glass-card">
+          <div class="section-title-row">
+            <div>
+              <h2 class="card-title">Surveillance Prédictive des Équipements HT/MT (STEG)</h2>
+              <p class="card-sub">Indice de santé Health Index (%) calculé par IA et planification des révisions</p>
+            </div>
+            <button class="btn-primary" (click)="validateMaintenancePlanning()">
+              <span class="material-symbols-rounded">verified</span>
+              <span>Valider le Planning de Maintenance</span>
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="volttn-table">
+              <thead>
+                <tr>
+                  <th>Équipement Stratégique</th>
+                  <th>Gouvernorat</th>
+                  <th>Health Index (Santé)</th>
+                  <th>Risque de Défaillance</th>
+                  <th>Maintenance Planifiée</th>
+                  <th>Recommandation IA</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (eq of equipmentRisks(); track eq.id) {
+                  <tr>
+                    <td><strong>{{ eq.name }}</strong> <br><small class="text-muted">{{ eq.type }}</small></td>
+                    <td>{{ eq.governorate }}</td>
+                    <td>
+                      <div class="usage-bar-wrapper">
+                        <div class="progress-bar-bg mini">
+                          <div 
+                            class="progress-bar-fill" 
+                            [class.coral]="eq.healthIndexPct < 60"
+                            [class.sun]="eq.healthIndexPct >= 60 && eq.healthIndexPct < 80"
+                            [class.nature]="eq.healthIndexPct >= 80"
+                            [style.width.%]="eq.healthIndexPct"
+                          ></div>
+                        </div>
+                        <span class="usage-text">{{ eq.healthIndexPct }}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="glass-badge" [ngClass]="eq.failureRisk === 'CRITIQUE' ? 'badge-coral' : (eq.failureRisk === 'MOYEN' ? 'badge-sun' : 'badge-nature')">
+                        {{ eq.failureRisk }}
+                      </span>
+                    </td>
+                    <td>{{ eq.plannedMaintenance }}</td>
+                    <td>{{ eq.recommendation }}</td>
+                    <td>
+                      <button class="btn-inspect" (click)="orderImmediateMaintenance(eq)">
+                        Planifier
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- ONGLET 5 : PLANIFICATEUR SYSTÈME & AUTOMATE (ACTEUR 6) -->
+      @if (activeTab() === 'scheduler') {
+        <div class="scheduler-view glass-card">
+          <div class="section-title-row">
+            <div>
+              <h2 class="card-title">Automates & Tâches Planifiées en Arrière-Plan (Système VoltTN)</h2>
+              <p class="card-sub">Cycle d'automatisation SCADA, prévisions périodiques, clustering et notifications</p>
+            </div>
+          </div>
+
+          <div class="tasks-grid">
+            @for (task of schedulerService.tasks(); track task.id) {
+              <div class="task-card glass-panel" appTilt3d [maxTilt]="6">
+                <div class="task-top">
+                  <div class="task-icon-box">
+                    <span class="material-symbols-rounded">{{ task.icon }}</span>
+                  </div>
+                  <span class="glass-badge badge-nature">
+                    {{ task.status === 'RUNNING' ? 'En cours...' : 'Opérationnel' }}
+                  </span>
+                </div>
+
+                <h3 class="task-name">{{ task.name }}</h3>
+                <p class="task-desc">{{ task.description }}</p>
+
+                <div class="task-meta-row">
+                  <div>
+                    <span class="lbl">Fréquence :</span>
+                    <strong class="val">{{ task.frequency }}</strong>
+                  </div>
+                  <div>
+                    <span class="lbl">Dernière exécution :</span>
+                    <strong class="val">{{ task.lastRun }}</strong>
+                  </div>
+                </div>
+
+                <button class="btn-primary btn-full" [disabled]="task.status === 'RUNNING'" (click)="schedulerService.runTaskNow(task.id)">
+                  <span class="material-symbols-rounded">play_circle</span>
+                  <span>{{ task.status === 'RUNNING' ? 'Exécution...' : 'Exécuter Maintenant' }}</span>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
 
     </div>
   `,
@@ -379,8 +654,8 @@ import { Governorate } from '../../../models/governorate.model';
     .operator-dashboard {
       display: flex;
       flex-direction: column;
-      gap: 24px;
-      padding-bottom: 40px;
+      gap: 22px;
+      padding-bottom: 50px;
     }
 
     .control-header {
@@ -389,12 +664,15 @@ import { Governorate } from '../../../models/governorate.model';
       align-items: center;
       padding: 24px 30px;
       border-radius: var(--radius-xl);
+      gap: 20px;
+      flex-wrap: wrap;
     }
 
     .badge-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
 
     .header-title {
@@ -407,18 +685,54 @@ import { Governorate } from '../../../models/governorate.model';
     .header-desc {
       font-size: 14px;
       color: var(--text-muted);
+      max-width: 680px;
     }
 
     .header-actions {
       display: flex;
       gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Tabs Bar */
+    .dashboard-tabs-bar {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: var(--radius-lg);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-full);
+      border: 1px solid rgba(29, 53, 87, 0.08);
+      background: rgba(255, 255, 255, 0.85);
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all var(--transition-fast);
+
+      .material-symbols-rounded { font-size: 18px; }
+
+      &:hover { color: var(--text-main); }
+      &.active {
+        background: var(--text-main);
+        color: #FFFFFF;
+        border-color: transparent;
+      }
     }
 
     /* Metrics Grid */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
     }
 
     .metric-card {
@@ -430,8 +744,8 @@ import { Governorate } from '../../../models/governorate.model';
     }
 
     .card-icon {
-      width: 52px;
-      height: 52px;
+      width: 50px;
+      height: 50px;
       border-radius: var(--radius-md);
       display: flex;
       align-items: center;
@@ -439,52 +753,35 @@ import { Governorate } from '../../../models/governorate.model';
       color: #FFFFFF;
       flex-shrink: 0;
 
-      &.sun { background: var(--sun-gradient); box-shadow: 0 4px 14px rgba(251, 133, 0, 0.35); }
-      &.nature { background: var(--nature-gradient); box-shadow: 0 4px 14px rgba(82, 183, 136, 0.35); }
-      &.coral { background: linear-gradient(135deg, #FF6B6B 0%, #D90429 100%); box-shadow: 0 4px 14px rgba(255, 107, 107, 0.35); }
-      &.sky { background: var(--sky-gradient); box-shadow: 0 4px 14px rgba(76, 201, 240, 0.35); }
+      &.sun { background: var(--sun-gradient); }
+      &.nature { background: var(--nature-gradient); }
+      &.coral { background: linear-gradient(135deg, #FF6B6B 0%, #D90429 100%); }
+      &.sky { background: var(--sky-gradient); }
     }
 
     .metric-info {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .m-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 700;
-    }
-
+    .m-label { font-size: 12px; font-weight: 700; color: var(--text-muted); }
     .m-val-row {
       display: flex;
       align-items: baseline;
       gap: 6px;
-      margin: 2px 0 6px 0;
-    }
-
-    .m-val {
-      font-family: var(--font-title);
-      font-size: 26px;
-      font-weight: 900;
-      color: var(--text-main);
-      &.text-coral { color: var(--alert-coral); }
-    }
-
-    .m-unit {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text-light);
+      .m-val { font-size: 22px; font-weight: 900; color: var(--text-main); }
+      .m-unit { font-size: 13px; font-weight: 700; color: var(--text-light); }
     }
 
     .progress-bar-bg {
-      width: 100%;
       height: 6px;
-      background: rgba(29, 53, 87, 0.08);
       border-radius: var(--radius-full);
+      background: rgba(29, 53, 87, 0.08);
       overflow: hidden;
-      margin-bottom: 6px;
-
-      &.mini { height: 8px; width: 80px; }
+      margin: 2px 0;
+      &.mini { width: 90px; }
     }
 
     .progress-bar-fill {
@@ -496,15 +793,12 @@ import { Governorate } from '../../../models/governorate.model';
       &.sky { background: var(--sky-gradient); }
     }
 
-    .m-sub {
-      font-size: 11px;
-      color: var(--text-light);
-      display: block;
-    }
+    .m-sub { font-size: 11.5px; color: var(--text-muted); }
 
     /* Map Section */
     .map-section {
       padding: 24px;
+      border-radius: var(--radius-xl);
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -524,80 +818,140 @@ import { Governorate } from '../../../models/governorate.model';
       gap: 8px;
       padding: 6px 14px;
       background: var(--sun-light);
-      border: 1px solid rgba(251, 133, 0, 0.4);
       border-radius: var(--radius-full);
-      color: #A35C00;
-      font-weight: 700;
       font-size: 13px;
-    }
-
-    .btn-clear {
-      background: none;
-      border: none;
-      cursor: pointer;
       font-weight: 800;
       color: #A35C00;
+      .pin-icon { font-size: 18px; }
+      .btn-clear { background: none; border: none; cursor: pointer; font-size: 14px; color: #A35C00; }
     }
 
-    /* AI Forecast Grid */
-    .ai-forecast-grid {
-      display: grid;
-      grid-template-columns: 1fr 360px;
-      gap: 24px;
-    }
-
-    .forecast-card {
-      padding: 24px;
+    /* Forecast Block */
+    .actions-banner {
+      padding: 22px;
+      border-radius: var(--radius-xl);
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      gap: 16px;
+      border: 1.5px solid var(--sun-gold);
     }
 
-    .card-header {
+    .action-banner-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 20px;
+      align-items: center;
     }
 
-    .card-title {
-      font-size: 19px;
-      font-weight: 800;
-      color: var(--text-main);
+    .rec-title-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      .material-symbols-rounded { font-size: 24px; }
     }
 
-    .card-sub {
-      font-size: 13px;
-      color: var(--text-light);
+    .recommendations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .rec-card {
+      padding: 18px;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .rec-top {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .rec-icon {
+      font-size: 28px;
+      &.coral { color: var(--alert-coral); }
+      &.sky { color: var(--sky-blue); }
+      &.sun { color: var(--sun-amber); }
+    }
+
+    .rec-name { font-size: 14px; font-weight: 800; color: var(--text-main); }
+    .rec-sub { font-size: 11.5px; color: var(--text-light); }
+    .rec-desc { font-size: 12px; color: var(--text-muted); line-height: 1.35; flex: 1; }
+
+    .ai-forecast-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 22px;
+    }
+
+    .forecast-card, .scenario-card {
+      padding: 24px;
+      border-radius: var(--radius-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .forecast-selectors-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .form-select.mini {
+      padding: 6px 12px;
+      font-size: 12.5px;
+      border-radius: var(--radius-full);
+      border: 1px solid rgba(29, 53, 87, 0.15);
+      outline: none;
+      font-weight: 700;
+    }
+
+    .horizon-pills {
+      display: flex;
+      gap: 4px;
+    }
+
+    .h-pill {
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      border: 1px solid rgba(29, 53, 87, 0.1);
+      background: rgba(255, 255, 255, 0.9);
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      &.active { background: var(--sun-gradient); color: #FFFFFF; border-color: transparent; }
     }
 
     .metrics-pills {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .metric-pill {
-      font-size: 11.5px;
       padding: 4px 10px;
-      background: rgba(255, 255, 255, 0.85);
-      border: 1px solid rgba(29, 53, 87, 0.1);
+      background: rgba(29, 53, 87, 0.06);
       border-radius: var(--radius-full);
-      color: var(--text-muted);
-      strong { color: var(--sun-amber); }
+      font-size: 11.5px;
+      color: var(--text-main);
     }
 
     .forecast-chart-container {
       height: 220px;
-      margin: 12px 0;
+      width: 100%;
     }
 
     .chart-bars {
-      width: 100%;
-      height: 100%;
       display: flex;
+      height: 100%;
       align-items: flex-end;
-      justify-content: space-between;
-      gap: 10px;
+      gap: 12px;
+      padding-bottom: 20px;
     }
 
     .f-col {
@@ -607,83 +961,64 @@ import { Governorate } from '../../../models/governorate.model';
       flex-direction: column;
       align-items: center;
       justify-content: flex-end;
-      gap: 8px;
+      gap: 6px;
     }
 
     .f-track {
       position: relative;
-      width: 100%;
-      max-width: 44px;
-      height: 170px;
-      background: rgba(29, 53, 87, 0.04);
-      border-radius: var(--radius-xs);
-      overflow: hidden;
+      width: 20px;
+      height: 160px;
+      background: rgba(29, 53, 87, 0.05);
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: flex-end;
     }
 
     .confidence-band {
       position: absolute;
       left: 0;
       right: 0;
-      background: rgba(76, 201, 240, 0.22);
-      border-top: 1px dashed var(--sky-blue);
-      border-bottom: 1px dashed var(--sky-blue);
+      background: rgba(76, 201, 240, 0.25);
+      border-radius: 4px;
     }
 
     .actual-bar {
-      position: absolute;
-      bottom: 0;
-      left: 20%;
-      right: 20%;
+      width: 100%;
       background: var(--sky-gradient);
-      border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+      border-radius: var(--radius-full);
     }
 
     .prediction-marker {
       position: absolute;
-      left: 5%;
-      right: 5%;
+      left: -2px;
+      right: -2px;
       height: 3px;
-      background: var(--sun-amber);
-      border-radius: 2px;
-      box-shadow: 0 0 6px var(--sun-amber);
+      background: var(--sun-gold);
+      border-radius: var(--radius-full);
     }
 
-    .f-label {
-      font-size: 11px;
-      color: var(--text-light);
-      font-weight: 700;
-    }
+    .f-label { font-size: 11px; font-weight: 700; color: var(--text-muted); }
 
     .chart-legend-row {
       display: flex;
-      gap: 20px;
+      gap: 16px;
       justify-content: center;
       font-size: 12px;
-      font-weight: 600;
-      padding-top: 10px;
-      border-top: 1px solid rgba(29, 53, 87, 0.08);
+      font-weight: 700;
     }
 
     .bullet {
-      display: inline-block;
       width: 10px;
       height: 10px;
       border-radius: 50%;
+      display: inline-block;
       margin-right: 4px;
-      &.sky { background: var(--sky-ocean); }
-      &.sun { background: var(--sun-amber); }
-      &.band { background: rgba(76, 201, 240, 0.4); }
+      &.sky { background: var(--sky-blue); }
+      &.sun { background: var(--sun-gold); }
+      &.band { background: rgba(76, 201, 240, 0.35); }
     }
 
     /* Scenario Card */
-    .scenario-card {
-      padding: 22px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
     .scenario-header {
       display: flex;
       align-items: center;
@@ -693,24 +1028,17 @@ import { Governorate } from '../../../models/governorate.model';
     .scenario-icon-box {
       width: 44px;
       height: 44px;
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-md);
       background: var(--sun-light);
-      color: #A35C00;
+      color: var(--sun-amber);
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 24px;
     }
 
-    .scenario-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--text-main);
-    }
-
-    .scenario-sub {
-      font-size: 12px;
-      color: var(--text-light);
-    }
+    .scenario-title { font-size: 16px; font-weight: 800; color: var(--text-main); }
+    .scenario-sub { font-size: 12px; color: var(--text-muted); }
 
     .sliders-list {
       display: flex;
@@ -727,177 +1055,156 @@ import { Governorate } from '../../../models/governorate.model';
     .slider-label-row {
       display: flex;
       justify-content: space-between;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
       color: var(--text-main);
     }
 
     .slider-val {
       color: var(--sun-amber);
-      font-weight: 800;
-      &.danger { color: var(--alert-coral); }
+      &.danger { color: var(--alert-coral); font-weight: 900; }
     }
 
-    .slider-hint {
-      font-size: 11px;
-      color: var(--text-light);
+    .range-slider {
+      width: 100%;
+      accent-color: var(--sun-amber);
     }
 
-    .checkbox-group {
-      margin-top: 4px;
+    .slider-hint { font-size: 11px; color: var(--text-light); }
+
+    /* Dispatching Layout */
+    .dispatching-layout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 22px;
     }
 
-    .custom-checkbox {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-main);
-
-      input {
-        width: 16px;
-        height: 16px;
-        accent-color: var(--sun-amber);
-      }
-    }
-
-    .scenario-result-box {
-      padding: 14px;
-      border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.7);
-      border: 1px dashed rgba(251, 133, 0, 0.4);
+    .map-dispatch-card, .assign-sidebar {
+      padding: 22px;
+      border-radius: var(--radius-xl);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 16px;
     }
 
-    .res-title {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 700;
+    .inc-selected-box {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--sun-gold);
     }
 
-    .res-diff {
-      font-size: 14px;
-      color: var(--text-main);
-      strong { color: var(--sun-amber); }
-    }
+    .inc-header { display: flex; justify-content: space-between; align-items: center; }
+    .inc-addr { font-size: 14.5px; font-weight: 800; color: var(--text-main); margin-top: 4px; }
+    .inc-gov { font-size: 12px; color: var(--text-light); }
+    .inc-affected { font-size: 12.5px; color: var(--alert-coral); margin-top: 4px; }
 
-    .btn-full {
-      width: 100%;
-    }
+    .tech-list-title { font-size: 13px; font-weight: 800; color: var(--text-main); margin-top: 6px; }
 
-    /* Table Card */
-    .table-card {
-      padding: 24px;
-    }
-
-    .table-header-row {
+    .technicians-list {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .tech-item {
+      display: flex;
       align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
+      gap: 10px;
+      padding: 10px;
+      border-radius: var(--radius-md);
+    }
+
+    .tech-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .tech-meta {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      font-size: 11.5px;
+      .t-name { color: var(--text-main); font-size: 12.5px; }
+      .t-district { color: var(--text-muted); }
+      .t-status { color: var(--nature-green); font-weight: 700; }
+    }
+
+    .btn-mini { padding: 6px 12px; font-size: 12px; }
+
+    .empty-selection-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+      padding: 40px 20px;
+      color: var(--text-light);
+      .material-symbols-rounded { font-size: 38px; }
+      p { font-size: 13px; }
+    }
+
+    /* Maintenance View */
+    .maintenance-view, .scheduler-view {
+      padding: 24px;
+      border-radius: var(--radius-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Tasks Grid */
+    .tasks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .task-card {
+      padding: 20px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
       gap: 12px;
     }
 
-    .filter-pills {
+    .task-top {
       display: flex;
-      gap: 6px;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .filter-pill {
-      padding: 6px 14px;
-      border-radius: var(--radius-full);
-      border: 1px solid rgba(29, 53, 87, 0.1);
-      background: rgba(255, 255, 255, 0.85);
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-
-      &:hover { color: var(--text-main); }
-      &.active {
-        background: var(--sun-gradient);
-        color: #FFFFFF;
-        border-color: transparent;
-      }
-    }
-
-    .volttn-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13.5px;
-
-      th {
-        text-align: left;
-        padding: 12px 14px;
-        color: var(--text-muted);
-        font-weight: 800;
-        border-bottom: 2px solid rgba(29, 53, 87, 0.08);
-      }
-
-      td {
-        padding: 12px 14px;
-        color: var(--text-main);
-        border-bottom: 1px solid rgba(29, 53, 87, 0.05);
-      }
-
-      tr:hover td {
-        background: rgba(255, 255, 255, 0.6);
-      }
-
-      tr.highlighted td {
-        background: rgba(255, 183, 3, 0.12);
-      }
-    }
-
-    .gov-name-cell {
+    .task-icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      background: var(--sky-light);
+      color: var(--sky-ocean);
       display: flex;
       align-items: center;
-      gap: 6px;
-      .gov-icon { font-size: 18px; color: var(--sun-amber); }
+      justify-content: center;
+      font-size: 22px;
     }
 
-    .text-ar {
-      font-family: var(--font-arabic);
-      direction: rtl;
-    }
+    .task-name { font-size: 14.5px; font-weight: 800; color: var(--text-main); }
+    .task-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.35; flex: 1; }
 
-    .usage-bar-wrapper {
+    .task-meta-row {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      font-size: 11.5px;
+      background: rgba(29, 53, 87, 0.04);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      .lbl { color: var(--text-muted); margin-right: 4px; }
+      .val { color: var(--text-main); }
     }
 
-    .usage-text {
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .btn-inspect {
-      padding: 6px 12px;
-      border-radius: var(--radius-full);
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid var(--sky-blue);
-      color: var(--sky-deep);
-      font-weight: 700;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-
-      &:hover {
-        background: var(--sky-blue);
-        color: #FFFFFF;
-      }
-    }
+    .btn-full { width: 100%; }
 
     @media (max-width: 1024px) {
-      .ai-forecast-grid { grid-template-columns: 1fr; }
-      .control-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .ai-forecast-grid, .dispatching-layout { grid-template-columns: 1fr; }
     }
   `]
 })
@@ -905,31 +1212,71 @@ export class OperateurDashboardComponent {
   eleService = inject(ElectricityService);
   outageService = inject(OutageService);
   fraudService = inject(FraudService);
+  notifService = inject(NotificationService);
+  schedulerService = inject(SystemSchedulerService);
 
+  activeTab = signal<'overview' | 'forecast' | 'dispatching' | 'maintenance' | 'scheduler'>('overview');
   selectedGovernorate = signal<Governorate | null>(null);
   statusFilter = signal<string>('ALL');
 
+  // Forecast state
+  selectedGovForForecast = 'NATIONAL';
+  selectedHorizon: 'J+1' | 'J+7' = 'J+1';
+
+  // Scenario
   tempDelta = signal<number>(0);
   industrialActivity = signal<number>(100);
   isHoliday = signal<boolean>(false);
 
   Math = Math;
+  forecastData = signal(this.eleService.getForecast(undefined, 'J+1'));
 
-  forecastData = signal(this.eleService.getForecast());
+  // Incident & Dispatching
+  selectedIncident = signal<OutageReport | null>(this.outageService.outages()[0] || null);
+
+  availableTechnicians = [
+    { name: 'Karim Trabelsi', district: 'Ben Arous / Tunis-Sud', distanceKm: 4.2, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80' },
+    { name: 'Slim Ben Amor', district: 'Sousse / Sahel', distanceKm: 11.5, avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80' },
+    { name: 'Mounir Chaari', district: 'Sfax / Centre', distanceKm: 8.0, avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=150&q=80' }
+  ];
+
+  // Maintenance & Equipments (Bonus)
+  equipmentRisks = signal<EquipmentRisk[]>([
+    { id: 'eq-01', name: 'Poste HT 225kV Radès', type: 'Sous-Station Électrique', governorate: 'Ben Arous', healthIndexPct: 58, failureRisk: 'CRITIQUE', plannedMaintenance: '22 Oct 2025', recommendation: 'Remplacement disjoncteur SF6 sous 48h' },
+    { id: 'eq-02', name: 'Transformateur MT 630kVA Belvédère', type: 'Poste Transformateur', governorate: 'Tunis', healthIndexPct: 72, failureRisk: 'MOYEN', plannedMaintenance: 'Aujourd\'hui 14h', recommendation: 'Filtration de l\'huile diélectrique' },
+    { id: 'eq-03', name: 'Départ Aérien 30kV Métline', type: 'Ligne Moyenne Tension', governorate: 'Bizerte', healthIndexPct: 84, failureRisk: 'FAIBLE', plannedMaintenance: '30 Oct 2025', recommendation: 'Inspection par drone des isolateurs' },
+    { id: 'eq-04', name: 'Centrale Ghannouch Turbine 1', type: 'Groupe Turbo-Gaz', governorate: 'Gabès', healthIndexPct: 76, failureRisk: 'MOYEN', plannedMaintenance: '05 Nov 2025', recommendation: 'Révision standard des injecteurs' }
+  ]);
 
   refreshMetrics(): void {
-    this.forecastData.set(this.eleService.getForecast(this.selectedGovernorate()?.id));
+    const govId = this.selectedGovForForecast === 'NATIONAL' ? undefined : this.selectedGovForForecast;
+    this.forecastData.set(this.eleService.getForecast(govId, this.selectedHorizon));
+    this.notifService.showToast('SCADA Actualisé', 'Télémétries des 24 gouvernorats mises à jour.', 'INFO');
   }
 
   onGovernorateSelected(gov: Governorate): void {
     this.selectedGovernorate.set(gov);
-    this.forecastData.set(this.eleService.getForecast(gov.id));
+    this.selectedGovForForecast = gov.id;
+    this.forecastData.set(this.eleService.getForecast(gov.id, this.selectedHorizon));
+  }
+
+  onForecastGovChange(govId: string): void {
+    this.selectedGovForForecast = govId;
+    const actualGovId = govId === 'NATIONAL' ? undefined : govId;
+    this.forecastData.set(this.eleService.getForecast(actualGovId, this.selectedHorizon));
+  }
+
+  setHorizon(horizon: 'J+1' | 'J+7'): void {
+    this.selectedHorizon = horizon;
+    const govId = this.selectedGovForForecast === 'NATIONAL' ? undefined : this.selectedGovForForecast;
+    this.forecastData.set(this.eleService.getForecast(govId, horizon));
   }
 
   onTempDeltaChange(val: number): void {
     this.tempDelta.set(val);
     this.eleService.updateScenario({ tempDeltaC: val });
-    this.forecastData.set(this.eleService.getForecast(this.selectedGovernorate()?.id));
+    const govId = this.selectedGovForForecast === 'NATIONAL' ? undefined : this.selectedGovForForecast;
+    this.forecastData.set(this.eleService.getForecast(govId, this.selectedHorizon));
   }
 
   onIndustrialChange(val: number): void {
@@ -948,7 +1295,58 @@ export class OperateurDashboardComponent {
     this.industrialActivity.set(100);
     this.isHoliday.set(false);
     this.eleService.resetScenario();
-    this.forecastData.set(this.eleService.getForecast(this.selectedGovernorate()?.id));
+    this.forecastData.set(this.eleService.getForecast(undefined, this.selectedHorizon));
+    this.notifService.showToast('Scénario Réinitialisé', 'Paramètres réseau revenus à la normale.', 'INFO');
+  }
+
+  applyRecommendation(type: 'EFFACEMENT' | 'TURBINE' | 'NOTIF'): void {
+    if (type === 'EFFACEMENT') {
+      this.eleService.updateScenario({ industrialActivityPct: 80 });
+      this.notifService.showToast('Effacement Industriel Validé', 'Ordre SCADA transmis : -120 MW délestés contractuellement.', 'SUCCESS');
+    } else if (type === 'TURBINE') {
+      this.notifService.showToast('Turbine à Gaz Couplée', 'Ghannouch en ligne : +200 MW injectés sur le réseau 225kV.', 'SUCCESS');
+    } else if (type === 'NOTIF') {
+      this.notifService.addNotification({
+        title: 'Appel STEG : Vigilance Consommation',
+        titleAr: 'نداء الشركة التونسية للكهرباء والغاز',
+        message: 'Afin d\'éviter toute surcharge du réseau, merci de modérer votre climatisation à 26°C.',
+        messageAr: 'يرجى ترشيد استهلاك المكيفات لتجنب الضغط على الشبكة.',
+        type: 'WARNING',
+        targetRole: 'CITOYEN'
+      });
+      this.notifService.showToast('Notification Diffusée', 'Message d\'écogestes envoyé à tous les citoyens.', 'SUCCESS');
+    }
+  }
+
+  onIncidentSelected(outage: OutageReport): void {
+    this.selectedIncident.set(outage);
+  }
+
+  assignToTech(incident: OutageReport, techName: string): void {
+    this.outageService.assignTechnician(incident.id, techName);
+    this.notifService.showToast('Ordre d\'Intervention Affecté', `${techName} a été mandaté sur le dossier ${incident.reference}.`, 'SUCCESS');
+  }
+
+  validateMaintenancePlanning(): void {
+    this.notifService.showToast('Planning Validé', 'Le calendrier de révision trimestriel des équipements HT/MT a été validé.', 'SUCCESS');
+  }
+
+  orderImmediateMaintenance(eq: EquipmentRisk): void {
+    this.notifService.showToast('Intervention Immédiate Planifiée', `Équipe spécialisée assignée à la révision de ${eq.name}.`, 'INFO');
+  }
+
+  exportDailyReport(): void {
+    const csvContent = 'data:text/csv;charset=utf-8,' +
+      'Gouvernorat,Capacite_MW,Charge_Actuelle_MW,Temperature_C,Statut\n' +
+      this.eleService.governorates().map(g => `${g.name},${g.capacityMw},${g.currentLoadMw},${g.temperatureC},${g.status}`).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Rapport_Dispatching_STEG_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    this.notifService.showToast('Export Réussi', 'Rapport Excel CSV généré et téléchargé.', 'SUCCESS');
   }
 
   filteredGovernorates(): Governorate[] {
