@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Hero3dComponent } from '../../../shared/components/hero-3d/hero-3d.component';
@@ -7,6 +7,7 @@ import { ElectricityService } from '../../../core/services/electricity.service';
 import { OutageService } from '../../../core/services/outage.service';
 import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
 import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
+import { gsap } from 'gsap';
 
 @Component({
   selector: 'app-home',
@@ -594,8 +595,33 @@ import { TranslatePipe } from '../../../shared/pipes/translate.pipe';
     }
   `]
 })
-export class HomeComponent {
+export class HomeComponent implements AfterViewInit {
   authService = inject(AuthService);
   eleService = inject(ElectricityService);
   outageService = inject(OutageService);
+
+  ngAfterViewInit(): void {
+    try {
+      const tl = gsap.timeline();
+      tl.from('.hero-badge-pill', { opacity: 0, scale: 0.8, duration: 0.6, ease: 'back.out(1.7)' })
+        .from('.hero-title', { opacity: 0, y: 30, duration: 0.8, ease: 'power2.out' }, '-=0.3')
+        .from('.hero-subtitle', { opacity: 0, y: 20, duration: 0.7, ease: 'power2.out' }, '-=0.4')
+        .from('.hero-cta-group button, .hero-cta-group a', { 
+          opacity: 0, 
+          y: 20, 
+          stagger: 0.12, 
+          duration: 0.6, 
+          ease: 'back.out(1.5)' 
+        }, '-=0.3')
+        .from('.stat-card', { 
+          opacity: 0, 
+          y: 25, 
+          stagger: 0.1, 
+          duration: 0.7, 
+          ease: 'power3.out' 
+        }, '-=0.2');
+    } catch (e) {
+      console.warn('GSAP animation fallback:', e);
+    }
+  }
 }
