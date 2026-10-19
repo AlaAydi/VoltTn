@@ -6,11 +6,12 @@ import { ElectricityService } from '../../../core/services/electricity.service';
 import { SolarOrientation } from '../../../models/solar.model';
 import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
 import { NotificationService } from '../../../core/services/notification.service';
+import { Solar3dComponent } from '../../../shared/components/solar-3d/solar-3d.component';
 
 @Component({
   selector: 'app-solar-simulator',
   standalone: true,
-  imports: [CommonModule, FormsModule, Tilt3dDirective],
+  imports: [CommonModule, FormsModule, Tilt3dDirective, Solar3dComponent],
   template: `
     <div class="solar-page">
       
@@ -37,6 +38,12 @@ import { NotificationService } from '../../../core/services/notification.service
         <div class="params-column glass-card" appTilt3d [maxTilt]="6">
           <h2 class="card-title">Paramètres de votre Toiture</h2>
           <p class="card-sub">Ajustez les curseurs pour recalculer en temps réel</p>
+
+          <!-- Rendu 3D interactif Three.js des panneaux solaires -->
+          <app-solar-3d 
+            [surfaceM2]="surfaceM2()" 
+            [orientation]="orientation()"
+          ></app-solar-3d>
 
           <div class="inputs-list">
             
