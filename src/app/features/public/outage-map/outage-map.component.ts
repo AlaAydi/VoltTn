@@ -4,27 +4,30 @@ import { RouterModule } from '@angular/router';
 import { OutageService } from '../../../core/services/outage.service';
 import { ElectricityService } from '../../../core/services/electricity.service';
 import { OutageReport } from '../../../models/outage.model';
+import { TunisiaLeafletMapComponent } from '../../../shared/components/tunisia-leaflet-map/tunisia-leaflet-map.component';
+import { WeatherService } from '../../../core/services/weather.service';
 
 @Component({
   selector: 'app-outage-map',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, TunisiaLeafletMapComponent],
   template: `
     <div class="outages-page">
       
-      <!-- En-tête Transparence Réseau -->
-      <div class="page-header glass-card">
+      <!-- En-tête Observatoire Réseau STEG -->
+      <div class="page-header glass-card animate-float">
         <div class="header-left">
           <div class="badge-row">
             <span class="glass-badge badge-coral">
               <span class="material-symbols-rounded">power_off</span>
-              Observatoire Public des Pannes
+              Observatoire Cartographique des Pannes
             </span>
-            <span class="glass-badge badge-sky">Données Ouvertes Temps Réel</span>
+            <span class="glass-badge badge-sky">SIG Temps Réel Tunisie</span>
+            <span class="glass-badge badge-nature">Fréquence Réseau : 50.02 Hz</span>
           </div>
-          <h1 class="header-title">Carte des Coupures & Interventions en Tunisie</h1>
+          <h1 class="header-title">Carte des Coupures & Interventions Réseau en Tunisie</h1>
           <p class="header-desc">
-            Consultez les incidents en cours sur le réseau électrique moyenne et basse tension, les heures prévues de rétablissement et les équipes mobilisées.
+            Visualisation interactive style Google Maps des incidents moyenne et basse tension, temps moyen de rétablissement (MTTR) calculé par IA et mobilisation des équipes STEG.
           </p>
         </div>
         <div class="header-actions">
@@ -35,81 +38,61 @@ import { OutageReport } from '../../../models/outage.model';
         </div>
       </div>
 
-      <!-- Filtres et recherche -->
-      <div class="filter-card glass-card">
-        <div class="filter-row">
-          <div class="search-input-box">
-            <span class="material-symbols-rounded">search</span>
-            <input 
-              type="text" 
-              placeholder="Rechercher une rue, un quartier ou une référence..." 
-              (input)="onSearchChange($event)"
-            />
+      <!-- Métriques Clés en Direct -->
+      <div class="metrics-row">
+        <div class="kpi-card glass-card">
+          <div class="kpi-icon coral">
+            <span class="material-symbols-rounded">error</span>
           </div>
+          <div class="kpi-meta">
+            <span class="kpi-val text-coral">{{ outageService.stats().active }}</span>
+            <span class="kpi-lbl">Coupures Actives en Cours</span>
+          </div>
+        </div>
 
-          <div class="status-pills">
-            <button 
-              class="pill-btn" 
-              [class.active]="selectedStatus() === 'ALL'" 
-              (click)="selectedStatus.set('ALL')"
-            >
-              Tous ({{ outageService.outages().length }})
-            </button>
-            <button 
-              class="pill-btn coral" 
-              [class.active]="selectedStatus() === 'ACTIVE'" 
-              (click)="selectedStatus.set('ACTIVE')"
-            >
-              Coupures Actives ({{ outageService.stats().active }})
-            </button>
-            <button 
-              class="pill-btn nature" 
-              [class.active]="selectedStatus() === 'RESOLU'" 
-              (click)="selectedStatus.set('RESOLU')"
-            >
-              Rétablis Aujourd'hui ({{ outageService.stats().resolved }})
-            </button>
+        <div class="kpi-card glass-card">
+          <div class="kpi-icon nature">
+            <span class="material-symbols-rounded">check_circle</span>
+          </div>
+          <div class="kpi-meta">
+            <span class="kpi-val text-nature">{{ outageService.stats().resolved }}</span>
+            <span class="kpi-lbl">Incidents Rétablis Aujourd'hui</span>
+          </div>
+        </div>
+
+        <div class="kpi-card glass-card">
+          <div class="kpi-icon sun">
+            <span class="material-symbols-rounded">people</span>
+          </div>
+          <div class="kpi-meta">
+            <span class="kpi-val text-sun">{{ outageService.stats().totalAffected | number }}</span>
+            <span class="kpi-lbl">Abonnés Touchés Actuellement</span>
+          </div>
+        </div>
+
+        <div class="kpi-card glass-card">
+          <div class="kpi-icon sky">
+            <span class="material-symbols-rounded">avg_pace</span>
+          </div>
+          <div class="kpi-meta">
+            <span class="kpi-val text-sky">2h 15m</span>
+            <span class="kpi-lbl">Délai Moyen de Réparation (MTTR)</span>
           </div>
         </div>
       </div>
 
-      <!-- Disposition : Carte interactive visuelle + Liste des Incidents -->
+      <!-- Disposition : Carte Leaflet Google Maps + Liste Latérale -->
       <div class="outages-layout">
         
-        <!-- Cartographie stylisée des points d'intervention -->
-        <div class="map-view-card glass-card">
-          <div class="map-interactive-mock">
-            
-            <div class="map-badge-overlay">
-              <span class="material-symbols-rounded">public</span>
-              <span>Vue Réseau Tunisie</span>
-            </div>
-
-            <!-- Points d'intervention sur la carte de Tunisie -->
-            @for (item of filteredOutages(); track item.id; let i = $index) {
-              <div 
-                class="map-pin-marker animate-float"
-                [style.top.%]="getMapTopPct(item.lat)"
-                [style.left.%]="getMapLeftPct(item.lng)"
-                [class.pin-active]="item.status !== 'RESOLU'"
-                [class.pin-resolved]="item.status === 'RESOLU'"
-                (click)="selectedItem.set(item)"
-                [title]="item.reference + ' - ' + item.address"
-              >
-                <span class="material-symbols-rounded pin-symbol">
-                  {{ item.status === 'RESOLU' ? 'check' : 'bolt' }}
-                </span>
-                <span class="pin-tag">{{ item.governorate }}</span>
-              </div>
-            }
-
-            <div class="map-tip">
-              Cliquez sur un marqueur pour inspecter l'intervention
-            </div>
-          </div>
+        <!-- Carte Réelle Leaflet Haute Performance -->
+        <div class="map-view-column">
+          <app-tunisia-leaflet-map
+            [outages]="outageService.outages()"
+            (outageSelected)="onSelectFromMap($event)"
+          ></app-tunisia-leaflet-map>
         </div>
 
-        <!-- Fiche de détail ou liste -->
+        <!-- Fiche de détail ou Liste des signalements -->
         <div class="list-column">
           
           @if (selectedItem(); as current) {
@@ -121,14 +104,14 @@ import { OutageReport } from '../../../models/outage.model';
                   <span class="detail-gov">{{ current.district }}, {{ current.governorate }}</span>
                 </div>
                 <span class="glass-badge" [ngClass]="current.status === 'RESOLU' ? 'badge-nature' : 'badge-coral'">
-                  {{ current.status }}
+                  {{ current.status === 'RESOLU' ? 'Rétabli' : (current.status === 'EN_COURS' ? 'En réparation' : 'Signalé') }}
                 </span>
               </div>
 
               <div class="detail-body">
                 <div class="d-item">
                   <span class="d-lbl">Abonnés touchés :</span>
-                  <strong class="d-val text-coral">{{ current.affectedCustomers }}</strong>
+                  <strong class="d-val text-coral">{{ current.affectedCustomers | number }}</strong>
                 </div>
                 <div class="d-item">
                   <span class="d-lbl">Type de panne :</span>
@@ -144,26 +127,33 @@ import { OutageReport } from '../../../models/outage.model';
                 </div>
                 <div class="d-item">
                   <span class="d-lbl">Équipe mandatée :</span>
-                  <span class="d-val">{{ current.assignedTechnician || 'Équipe de garde' }}</span>
+                  <span class="d-val">{{ current.assignedTechnician || 'Équipe de garde régionale' }}</span>
                 </div>
               </div>
 
               <p class="detail-notes">{{ current.notes }}</p>
 
-              <button class="btn-secondary btn-full" (click)="selectedItem.set(null)">
-                Fermer le détail
-              </button>
+              <div class="detail-actions">
+                <button class="btn-secondary btn-full" (click)="selectedItem.set(null)">
+                  Fermer la fiche
+                </button>
+              </div>
             </div>
           }
 
           <div class="cards-scroll-list">
-            @for (outage of filteredOutages(); track outage.id) {
+            <div class="list-title-row">
+              <span class="l-title">Derniers Signalements Réseau</span>
+              <span class="l-count">{{ outageService.outages().length }} incidents</span>
+            </div>
+
+            @for (outage of outageService.outages(); track outage.id) {
               <div 
                 class="outage-list-item glass-panel"
                 [class.selected]="selectedItem()?.id === outage.id"
                 (click)="selectedItem.set(outage)"
               >
-                <div class="item-dot" [class.resolved]="outage.status === 'RESOLU'"></div>
+                <div class="item-dot" [class.resolved]="outage.status === 'RESOLU'" [class.in-progress]="outage.status === 'EN_COURS'"></div>
                 <div class="item-main">
                   <div class="item-top">
                     <span class="item-ref">{{ outage.reference }}</span>
@@ -171,7 +161,7 @@ import { OutageReport } from '../../../models/outage.model';
                   </div>
                   <div class="item-address">{{ outage.address }}</div>
                   <div class="item-bottom">
-                    <span class="item-affected">{{ outage.affectedCustomers }} abonnés</span>
+                    <span class="item-affected">{{ outage.affectedCustomers | number }} abonnés</span>
                     <span class="item-time">Rétablissement : {{ outage.estimatedResolution }}</span>
                   </div>
                 </div>
@@ -189,7 +179,7 @@ import { OutageReport } from '../../../models/outage.model';
     .outages-page {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 22px;
       padding-bottom: 50px;
     }
 
@@ -205,8 +195,9 @@ import { OutageReport } from '../../../models/outage.model';
 
     .badge-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
 
     .header-title {
@@ -217,167 +208,68 @@ import { OutageReport } from '../../../models/outage.model';
     }
 
     .header-desc {
-      font-size: 14px;
+      font-size: 14.5px;
       color: var(--text-muted);
-      max-width: 650px;
+      max-width: 680px;
     }
 
-    .filter-card {
+    /* KPI Row */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .kpi-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
       padding: 16px 20px;
       border-radius: var(--radius-lg);
     }
 
-    .filter-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .search-input-box {
+    .kpi-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1.5px solid rgba(29, 53, 87, 0.1);
-      border-radius: var(--radius-full);
-      width: 320px;
-      max-width: 100%;
-
-      .material-symbols-rounded { color: var(--text-light); }
-      input {
-        border: none;
-        outline: none;
-        background: transparent;
-        font-size: 13.5px;
-        width: 100%;
-      }
+      justify-content: center;
+      color: #FFFFFF;
+      font-size: 22px;
+      &.coral { background: var(--alert-coral); }
+      &.nature { background: var(--nature-green); }
+      &.sun { background: var(--sun-gold); }
+      &.sky { background: var(--sky-blue); }
     }
 
-    .status-pills {
+    .kpi-meta {
       display: flex;
-      gap: 8px;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .pill-btn {
-      padding: 8px 16px;
-      border-radius: var(--radius-full);
-      border: 1px solid rgba(29, 53, 87, 0.1);
-      background: rgba(255, 255, 255, 0.85);
+    .kpi-val {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--text-main);
+    }
+
+    .kpi-lbl {
+      font-size: 12px;
       color: var(--text-muted);
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-
-      &:hover { color: var(--text-main); }
-      &.active {
-        background: var(--sun-gradient);
-        color: #FFFFFF;
-        border-color: transparent;
-      }
-      &.coral.active { background: linear-gradient(135deg, #FF6B6B 0%, #D90429 100%); }
-      &.nature.active { background: var(--nature-gradient); }
+      font-weight: 600;
     }
 
     /* Layout */
     .outages-layout {
       display: grid;
-      grid-template-columns: 1fr 420px;
-      gap: 24px;
+      grid-template-columns: 1fr 380px;
+      gap: 22px;
     }
 
-    .map-view-card {
-      position: relative;
-      height: 520px;
-      border-radius: var(--radius-xl);
-      overflow: hidden;
-      background: radial-gradient(circle at 50% 30%, #FFFFFF 0%, #EBF6FA 100%);
-      box-shadow: var(--shadow-md);
-    }
-
-    .map-interactive-mock {
-      position: absolute;
-      inset: 0;
-      background-image: radial-gradient(rgba(76, 201, 240, 0.15) 1px, transparent 1px);
-      background-size: 24px 24px;
-    }
-
-    .map-badge-overlay {
-      position: absolute;
-      top: 18px;
-      left: 18px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(8px);
-      border-radius: var(--radius-full);
-      font-weight: 800;
-      font-size: 13px;
-      color: var(--text-main);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .map-tip {
-      position: absolute;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 6px 14px;
-      background: rgba(255, 255, 255, 0.88);
-      border-radius: var(--radius-full);
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 600;
-      pointer-events: none;
-    }
-
-    .map-pin-marker {
-      position: absolute;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transform: translate(-50%, -50%);
-      transition: transform var(--transition-bounce);
-
-      &:hover {
-        transform: translate(-50%, -50%) scale(1.2);
-        z-index: 10;
-      }
-    }
-
-    .pin-symbol {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: var(--alert-coral);
-      color: #FFFFFF;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      box-shadow: 0 4px 12px rgba(255, 107, 107, 0.45);
-    }
-
-    .pin-resolved .pin-symbol {
-      background: var(--nature-green);
-      box-shadow: 0 4px 12px rgba(82, 183, 136, 0.45);
-    }
-
-    .pin-tag {
-      font-size: 11px;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: var(--radius-full);
-      background: rgba(255, 255, 255, 0.92);
-      color: var(--text-main);
-      box-shadow: var(--shadow-sm);
-      white-space: nowrap;
+    .map-view-column {
+      width: 100%;
     }
 
     /* List Column */
@@ -385,11 +277,20 @@ import { OutageReport } from '../../../models/outage.model';
       display: flex;
       flex-direction: column;
       gap: 16px;
-      max-height: 520px;
+      max-height: 580px;
+    }
+
+    .list-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+      .l-title { font-size: 13.5px; font-weight: 800; color: var(--text-main); }
+      .l-count { font-size: 12px; color: var(--text-light); }
     }
 
     .detail-card {
-      padding: 20px;
+      padding: 18px;
       border-radius: var(--radius-lg);
       display: flex;
       flex-direction: column;
@@ -411,7 +312,7 @@ import { OutageReport } from '../../../models/outage.model';
     }
 
     .detail-addr {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 800;
       color: var(--text-main);
       line-height: 1.25;
@@ -425,8 +326,8 @@ import { OutageReport } from '../../../models/outage.model';
     .detail-body {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      font-size: 13px;
+      gap: 5px;
+      font-size: 12.5px;
     }
 
     .d-item {
@@ -435,7 +336,8 @@ import { OutageReport } from '../../../models/outage.model';
       .d-lbl { color: var(--text-muted); }
       .d-val {
         color: var(--text-main);
-        &.highlight { color: var(--sun-amber); }
+        font-weight: 600;
+        &.highlight { color: var(--sun-amber); font-weight: 800; }
       }
     }
 
@@ -446,6 +348,7 @@ import { OutageReport } from '../../../models/outage.model';
       padding: 8px 12px;
       border-radius: var(--radius-sm);
       border-left: 3px solid var(--sun-gold);
+      line-height: 1.35;
     }
 
     .btn-full { width: 100%; }
@@ -485,6 +388,7 @@ import { OutageReport } from '../../../models/outage.model';
       background: var(--alert-coral);
       flex-shrink: 0;
 
+      &.in-progress { background: var(--sun-gold); }
       &.resolved { background: var(--nature-green); }
     }
 
@@ -515,59 +419,18 @@ import { OutageReport } from '../../../models/outage.model';
 
     @media (max-width: 992px) {
       .outages-layout { grid-template-columns: 1fr; }
+      .list-column { max-height: 400px; }
     }
   `]
 })
 export class OutageMapComponent {
   outageService = inject(OutageService);
   eleService = inject(ElectricityService);
+  weatherService = inject(WeatherService);
 
-  selectedStatus = signal<'ALL' | 'ACTIVE' | 'RESOLU'>('ALL');
-  searchQuery = signal<string>('');
   selectedItem = signal<OutageReport | null>(null);
 
-  onSearchChange(event: Event): void {
-    const val = (event.target as HTMLInputElement).value;
-    this.searchQuery.set(val.trim().toLowerCase());
-  }
-
-  filteredOutages(): OutageReport[] {
-    const status = this.selectedStatus();
-    const query = this.searchQuery();
-    let list = this.outageService.outages();
-
-    if (status === 'ACTIVE') {
-      list = list.filter(o => o.status !== 'RESOLU');
-    } else if (status === 'RESOLU') {
-      list = list.filter(o => o.status === 'RESOLU');
-    }
-
-    if (query) {
-      list = list.filter(o =>
-        o.reference.toLowerCase().includes(query) ||
-        o.address.toLowerCase().includes(query) ||
-        o.governorate.toLowerCase().includes(query) ||
-        o.district.toLowerCase().includes(query)
-      );
-    }
-
-    return list;
-  }
-
-  // Projection cartographique normalisée pour la Tunisie
-  getMapTopPct(lat: number): number {
-    // 37.3°N (Bizerte) à 32.8°N (Tataouine)
-    const minLat = 32.5;
-    const maxLat = 37.5;
-    const norm = (maxLat - lat) / (maxLat - minLat);
-    return Math.max(8, Math.min(90, Math.round(norm * 85 + 6)));
-  }
-
-  getMapLeftPct(lng: number): number {
-    // 8.1°E (Tozeur) à 11.2°E (Mahdia)
-    const minLng = 8.0;
-    const maxLng = 11.5;
-    const norm = (lng - minLng) / (maxLng - minLng);
-    return Math.max(12, Math.min(88, Math.round(norm * 75 + 12)));
+  onSelectFromMap(outage: OutageReport): void {
+    this.selectedItem.set(outage);
   }
 }
