@@ -3,6 +3,7 @@ export type OutageType =
   | 'LIGNE_COUPEE' 
   | 'SURCHARGE_RESEAU' 
   | 'MAINTENANCE_PREVENTIVE' 
+  | 'TRAVAUX_PROGRAMMES'
   | 'INTEMPERIES';
 
 export type OutageStatus = 'SIGNALE' | 'EN_COURS' | 'RESOLU';
