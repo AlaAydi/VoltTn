@@ -1,128 +1,130 @@
 import { Injectable, signal, computed } from '@angular/core';
 
-export type Language = 'fr' | 'ar';
+export type Language = 'fr' | 'ar' | 'darija';
 
 export interface Translations {
   [key: string]: {
     fr: string;
     ar: string;
+    darija: string;
   };
 }
 
 const DICTIONARY: Translations = {
   // Navigation
-  'nav.home': { fr: 'Accueil', ar: 'الرئيسية' },
-  'nav.outages': { fr: 'Carte des Coupures', ar: 'خريطة الانقطاعات' },
-  'nav.solar': { fr: 'Simulateur Solaire', ar: 'محاكي الطاقة الشمسية' },
-  'nav.login': { fr: 'Connexion', ar: 'تسجيل الدخول' },
-  'nav.register': { fr: 'Inscription', ar: 'إنشاء حساب' },
-  'nav.logout': { fr: 'Déconnexion', ar: 'تسجيل الخروج' },
-  'nav.dashboard': { fr: 'Tableau de bord', ar: 'لوحة التحكم' },
-  'nav.consumption': { fr: 'Ma Consommation', ar: 'استهلاكي' },
-  'nav.report_outage': { fr: 'Signaler une Panne', ar: 'الإبلاغ عن عطب' },
-  'nav.tips': { fr: 'Conseils Éco', ar: 'نصائح التوفير' },
-  'nav.alerts': { fr: 'Mes Alertes', ar: 'تنبيهاتي' },
-  'nav.forecast': { fr: 'Prévision de Charge', ar: 'توقعات الأحمال' },
-  'nav.fraud': { fr: 'Détection de Fraude', ar: 'كشف التجاوزات' },
-  'nav.grid_management': { fr: 'Gestion du Réseau', ar: 'إدارة الشبكة' },
-  'nav.stats': { fr: 'Statistiques & Export', ar: 'إحصائيات وتصدير' },
-  'nav.interventions': { fr: 'Mes Interventions', ar: 'مهامي الميدانية' },
-  'nav.users': { fr: 'Utilisateurs & Rôles', ar: 'المستخدمين والأدوار' },
-  'nav.thresholds': { fr: 'Seuils Régionaux', ar: 'عتبات التنبيه' },
-  'nav.ml_models': { fr: 'Modèles IA', ar: 'نماذج الذكاء الاصطناعي' },
-  'nav.audit': { fr: 'Journal d\'Audit', ar: 'سجل العمليات' },
-  'nav.demo_generator': { fr: 'Générateur Démo', ar: 'مولد بيانات تجريبية' },
+  'nav.home': { fr: 'Accueil', ar: 'الرئيسية', darija: 'الرئيسية' },
+  'nav.outages': { fr: 'Carte des Coupures', ar: 'خريطة الانقطاعات', darija: 'قصّة الضو' },
+  'nav.solar': { fr: 'Simulateur Solaire', ar: 'محاكي الطاقة الشمسية', darija: 'طاقتي الشمسية' },
+  'nav.login': { fr: 'Connexion', ar: 'تسجيل الدخول', darija: 'دخول' },
+  'nav.register': { fr: 'Inscription', ar: 'إنشاء حساب', darija: 'تسجيل جديد' },
+  'nav.logout': { fr: 'Déconnexion', ar: 'تسجيل الخروج', darija: 'خروج' },
+  'nav.dashboard': { fr: 'Tableau de bord', ar: 'لوحة التحكم', darija: 'فضاء المتابعة' },
+  'nav.consumption': { fr: 'Ma Consommation', ar: 'استهلاكي', darija: 'استهلاكي' },
+  'nav.report_outage': { fr: 'Signaler une Panne', ar: 'الإبلاغ عن عطب', darija: 'بلّغ على عطب' },
+  'nav.tips': { fr: 'Conseils Éco', ar: 'نصائح التوفير', darija: 'دبّر واقتصد' },
+  'nav.billing': { fr: 'Facture & Relève IA', ar: 'الفاتورة والقراءة الذكية', darija: 'فاتورتي وعدادي' },
+  'nav.coach': { fr: 'Coach Énergie & Défis', ar: 'مرشد الطاقة والتحديات', darija: 'كوتش التوفير' },
+  'nav.assistant': { fr: 'Assistant IA', ar: 'المساعد الذكي', darija: 'عونك الذكي' },
+  'nav.alerts': { fr: 'Mes Alertes', ar: 'تنبيهاتي', darija: 'تنبيهاتي' },
+  'nav.forecast': { fr: 'Prévision de Charge', ar: 'توقعات الأحمال', darija: 'توقعات الضو' },
+  'nav.fraud': { fr: 'Détection de Fraude', ar: 'كشف التجاوزات', darija: 'كشف الخيوط والتجاوزات' },
+  'nav.grid_management': { fr: 'Carte des Pannes', ar: 'خريطة الأعطاب', darija: 'خريطة الأعطاب' },
+  'nav.maintenance': { fr: 'Maintenance Réseau', ar: 'صيانة المعدات', darija: 'تصليح وصيانة' },
+  'nav.scheduler': { fr: 'Planificateur Système', ar: 'مجدول المهام', darija: 'مجدول المهام' },
+  'nav.stats': { fr: 'Statistiques & Export', ar: 'إحصائيات وتصدير', darija: 'إحصائيات' },
+  'nav.interventions': { fr: 'Mes Interventions', ar: 'مهامي الميدانية', darija: 'المهمات متاعي' },
+  'nav.users': { fr: 'Utilisateurs & Rôles', ar: 'المستخدمين والأدوار', darija: 'المستعملين' },
+  'nav.thresholds': { fr: 'Seuils Régionaux', ar: 'عتبات التنبيه', darija: 'حدود الولايات' },
+  'nav.ml_models': { fr: 'Modèles IA', ar: 'نماذج الذكاء الاصطناعي', darija: 'موديلات الذكاء' },
+  'nav.data': { fr: 'Données & Imports', ar: 'البيانات والتوريد', darija: 'البيانات والتوريد' },
+  'nav.audit': { fr: 'Supervision & Audit', ar: 'المراقبة والتدقيق', darija: 'المراقبة والتدقيق' },
+  'nav.demo_generator': { fr: 'Générateur Démo', ar: 'مولد بيانات تجريبية', darija: 'تجربة ديمو' },
 
   // Hero & Public
-  'hero.badge': { fr: 'L\'Énergie Intelligente en Tunisie', ar: 'طاقة ذكية لمستقبل تونس' },
-  'hero.title_1': { fr: 'L\'électricité de demain,', ar: 'كهرباء الغد،' },
-  'hero.title_2': { fr: 'éclairée par l\'intelligence artificielle', ar: 'مستنيرة بالذكاء الاصطناعي' },
+  'hero.badge': { fr: 'L\'Énergie Intelligente en Tunisie', ar: 'طاقة ذكية لمستقبل تونس', darija: 'ضو تونس الذكي' },
+  'hero.title_1': { fr: 'L\'électricité de demain,', ar: 'كهرباء الغد،', darija: 'كهرباء غدوة،' },
+  'hero.title_2': { fr: 'éclairée par l\'intelligence artificielle', ar: 'مستنيرة بالذكاء الاصطناعي', darija: 'منوّرة بالذكاء الاصطناعي' },
   'hero.subtitle': { 
     fr: 'VoltTN modernise le réseau électrique tunisien. Anticipez la demande, détectez les anomalies, réduisez votre facture et accélérez votre transition solaire.',
-    ar: 'فولت-تونس تعصرن الشبكة الكهربائية التونسية. استبق الطلب، واكتشف الأعطال، وقلص فاتورتك مع التحول السلس نحو الطاقة الشمسية.' 
+    ar: 'فولت-تونس تعصرن الشبكة الكهربائية التونسية. استبق الطلب، واكتشف الأعطال، وقلص فاتورتك مع التحول السلس نحو الطاقة الشمسية.',
+    darija: 'فولت-تونس تبدّل طريقتنا مع الضو. تبع استهلاكك، اعرف فاتورتك قبل ما تجيك، قلّل مصاريفك ونوّر دارك بالطاقة الشمسية.' 
   },
-  'hero.cta_citizen': { fr: 'Espace Citoyen', ar: 'فضاء المواطن' },
-  'hero.cta_operator': { fr: 'Console Opérateur', ar: 'بوابة المشغل' },
-  'hero.cta_solar': { fr: 'Simuler mon Solaire', ar: 'حساب طاقتي الشمسية' },
+  'hero.cta_citizen': { fr: 'Espace Citoyen', ar: 'فضاء المواطن', darija: 'فضاء المواطن' },
+  'hero.cta_operator': { fr: 'Console Opérateur', ar: 'بوابة المشغل', darija: 'بوابة الستاغ' },
+  'hero.cta_solar': { fr: 'Simuler mon Solaire', ar: 'حساب طاقتي الشمسية', darija: 'احسب شمس دارك' },
 
   // Stats clés
-  'stats.national_load': { fr: 'Charge Nationale', ar: 'الحمل الوطني' },
-  'stats.solar_ratio': { fr: 'Part Solaire & Renouvelable', ar: 'نسبة الطاقة المتجددة' },
-  'stats.forecast_accuracy': { fr: 'Précision de Prévision IA', ar: 'دقة توقعات الذكاء' },
-  'stats.governorates_connected': { fr: 'Gouvernorats Connectés', ar: 'ولاية متصلة بالشبكة' },
+  'stats.national_load': { fr: 'Charge Nationale', ar: 'الحمل الوطني', darija: 'الحمل الوطني' },
+  'stats.solar_ratio': { fr: 'Part Solaire & Renouvelable', ar: 'نسبة الطاقة المتجددة', darija: 'طاقة نظيفة' },
+  'stats.forecast_accuracy': { fr: 'Précision de Prévision IA', ar: 'دقة توقعات الذكاء', darija: 'دقة التوقعات' },
+  'stats.governorates_connected': { fr: 'Gouvernorats Connectés', ar: 'ولاية متصلة بالشبكة', darija: 'ولاية مربوطة' },
 
   // Rôles
-  'role.citoyen': { fr: 'Citoyen', ar: 'مواطن' },
-  'role.operateur': { fr: 'Opérateur STEG', ar: 'مشغل الشبكة' },
-  'role.technicien': { fr: 'Technicien', ar: 'تقني ميداني' },
-  'role.admin': { fr: 'Administrateur', ar: 'مدير النظام' },
+  'role.citoyen': { fr: 'Citoyen', ar: 'مواطن', darija: 'مواطن' },
+  'role.operateur': { fr: 'Opérateur STEG', ar: 'مشغل الشبكة', darija: 'مشغل الستاغ' },
+  'role.technicien': { fr: 'Technicien', ar: 'تقني ميداني', darija: 'تقني ميداني' },
+  'role.admin': { fr: 'Administrateur', ar: 'مدير النظام', darija: 'مدير المنظومة' },
 
   // Communs
-  'common.search': { fr: 'Rechercher...', ar: 'بحث...' },
-  'common.export': { fr: 'Exporter', ar: 'تصدير' },
-  'common.filter': { fr: 'Filtrer', ar: 'تصفية' },
-  'common.refresh': { fr: 'Actualiser', ar: 'تحديث' },
-  'common.save': { fr: 'Enregistrer', ar: 'حفظ' },
-  'common.cancel': { fr: 'Annuler', ar: 'إلغاء' },
-  'common.validate': { fr: 'Valider', ar: 'تأكيد' },
-  'common.reject': { fr: 'Rejeter', ar: 'رفض' },
-  'common.status': { fr: 'Statut', ar: 'الحالة' },
-  'common.region': { fr: 'Région / Gouvernorat', ar: 'الولاية / المنطقة' },
-  'common.date': { fr: 'Date', ar: 'التاريخ' },
-  'common.actions': { fr: 'Actions', ar: 'الإجراءات' },
-  'common.all': { fr: 'Tous', ar: 'الكل' },
-  'common.tnd': { fr: 'DT', ar: 'د.ت' },
-  'common.kwh': { fr: 'kWh', ar: 'ك.و.س' },
-  'common.mw': { fr: 'MW', ar: 'ميجاوات' },
-  'common.demo_mode': { fr: 'Mode Démo Rapide', ar: 'الوضع التجريبي السريع' }
+  'common.loading': { fr: 'Chargement...', ar: 'جار التحميل...', darija: 'لحظة تتحل...' },
+  'common.save': { fr: 'Enregistrer', ar: 'حفظ', darija: 'سجّل' },
+  'common.cancel': { fr: 'Annuler', ar: 'إلغاء', darija: 'بطّل' },
+  'common.close': { fr: 'Fermer', ar: 'إغلاق', darija: 'سكّر' },
+  'common.confirm': { fr: 'Confirmer', ar: 'تأكيد', darija: 'ثبّت' },
+  'common.search': { fr: 'Rechercher...', ar: 'بحث...', darija: 'لوّج...' },
+  'common.filter': { fr: 'Filtrer', ar: 'تصفية', darija: 'صفّي' },
+  'common.details': { fr: 'Détails', ar: 'التفاصيل', darija: 'التفاصيل' }
 };
 
 @Injectable({
   providedIn: 'root'
 })
 export class I18nService {
-  private currentLangSignal = signal<Language>('fr');
+  currentLang = signal<Language>('fr');
 
-  readonly currentLang = computed(() => this.currentLangSignal());
-  readonly isRtl = computed(() => this.currentLangSignal() === 'ar');
+  isRtl = computed(() => this.currentLang() === 'ar' || this.currentLang() === 'darija');
 
   constructor() {
-    // Vérifier langue sauvegardée
-    const saved = localStorage.getItem('volttn_lang') as Language;
-    if (saved === 'ar' || saved === 'fr') {
-      this.setLanguage(saved);
-    } else {
-      this.updateHtmlAttributes('fr');
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('volttn_lang') as Language : null;
+    if (saved === 'fr' || saved === 'ar' || saved === 'darija') {
+      this.currentLang.set(saved);
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('dir', (saved === 'ar' || saved === 'darija') ? 'rtl' : 'ltr');
+        document.documentElement.setAttribute('lang', saved);
+      }
     }
   }
 
   setLanguage(lang: Language): void {
-    this.currentLangSignal.set(lang);
-    localStorage.setItem('volttn_lang', lang);
-    this.updateHtmlAttributes(lang);
+    this.currentLang.set(lang);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('volttn_lang', lang);
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('dir', (lang === 'ar' || lang === 'darija') ? 'rtl' : 'ltr');
+      document.documentElement.setAttribute('lang', lang);
+    }
   }
 
   toggleLanguage(): void {
-    const next = this.currentLangSignal() === 'fr' ? 'ar' : 'fr';
+    const current = this.currentLang();
+    let next: Language = 'fr';
+    if (current === 'fr') next = 'ar';
+    else if (current === 'ar') next = 'darija';
+    else next = 'fr';
     this.setLanguage(next);
+  }
+
+  getLanguageLabel(): string {
+    const current = this.currentLang();
+    if (current === 'fr') return 'FR';
+    if (current === 'ar') return 'عربي';
+    return 'تونسي';
   }
 
   translate(key: string): string {
     const entry = DICTIONARY[key];
-    if (!entry) {
-      return key;
-    }
-    return this.currentLangSignal() === 'ar' ? entry.ar : entry.fr;
-  }
-
-  private updateHtmlAttributes(lang: Language): void {
-    const isArabic = lang === 'ar';
-    document.documentElement.lang = lang;
-    document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
-    if (isArabic) {
-      document.body.classList.add('rtl');
-    } else {
-      document.body.classList.remove('rtl');
-    }
+    if (!entry) return key;
+    return entry[this.currentLang()] || entry.fr || key;
   }
 }

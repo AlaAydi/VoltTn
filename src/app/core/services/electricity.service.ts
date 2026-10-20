@@ -111,6 +111,11 @@ export class ElectricityService {
     );
   }
 
+  // Mettre à jour la collection des gouvernorats
+  updateAllGovernorates(fn: (govs: Governorate[]) => Governorate[]): void {
+    this.governoratesSignal.update(fn);
+  }
+
   // Prévision de charge J+1 (24h) et J+7
   getForecast(governorateId?: string, horizon: 'J+1' | 'J+7' = 'J+1') {
     const gov = governorateId ? this.getGovernorate(governorateId) : null;
