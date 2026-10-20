@@ -649,3 +649,260 @@ a {
   }
 }
 
+
+/* ==========================================================================
+   VoltTN — Responsive Breakpoints & Mobile-First Utilities
+   ========================================================================== */
+
+/* --- Variables responsive --- */
+:root {
+  --page-padding: 24px;
+  --page-padding-tablet: 16px;
+  --page-padding-mobile: 12px;
+}
+
+/* --- Utilitaires globaux --- */
+.page-container {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 var(--page-padding);
+}
+
+.hidden-mobile   { display: block; }
+.visible-mobile  { display: none; }
+.hidden-tablet   { display: block; }
+.visible-tablet  { display: none; }
+
+/* --- Responsive overflow protection --- */
+* {
+  max-width: 100%;
+}
+
+img, canvas, svg, video, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent horizontal scrollbar at root level */
+html, body {
+  overflow-x: hidden;
+}
+
+/* --- Touch targets min size --- */
+button, a, [role="button"], input[type="checkbox"], input[type="radio"], select {
+  min-height: 44px;
+}
+
+/* For inline button overrides that set explicit smaller height */
+.chip-btn, .tab-btn, .pill, .filter-chip, .glass-badge, .btn-text, .btn-mini-link,
+.btn-mini, .btn-sample, .feedback-btn, .btn-ctrl, .btn-close, .toggle-btn,
+.btn-thresh-edit, .badge, .orient-pill, .btn-mini-action, .link-badge {
+  min-height: unset;
+}
+
+/* --- Badge row wrapping on small screens --- */
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* --- Responsive flex helpers --- */
+.flex-wrap-mobile { flex-wrap: nowrap; }
+
+/* ==========================================================================
+   Tablet (641px – 1024px)
+   ========================================================================== */
+@media (max-width: 1024px) {
+  :root {
+    --page-padding: var(--page-padding-tablet);
+  }
+
+  html { font-size: 14px; }
+
+  .hidden-tablet  { display: none !important; }
+  .visible-tablet { display: block !important; }
+
+  .glass-card {
+    border-radius: var(--radius-md);
+  }
+
+  /* Table: always scrollable on tablet */
+  .table-responsive {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Buttons: reduce padding */
+  .btn-primary, .btn-secondary, .btn-sky, .btn-nature {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+}
+
+/* ==========================================================================
+   Mobile (≤ 640px)
+   ========================================================================== */
+@media (max-width: 640px) {
+  :root {
+    --page-padding: var(--page-padding-mobile);
+  }
+
+  html { font-size: 13.5px; }
+
+  .hidden-mobile  { display: none !important; }
+  .visible-mobile { display: block !important; }
+
+  /* Table: mobile card layout using data-label trick */
+  .volttn-table {
+    font-size: 12.5px;
+
+    thead th {
+      padding: 12px 14px;
+      font-size: 10.5px;
+    }
+
+    tbody td {
+      padding: 12px 14px;
+      font-size: 12.5px;
+    }
+  }
+
+  /* Buttons: full-width on mobile for CTAs */
+  .btn-cta-full {
+    width: 100% !important;
+  }
+
+  .btn-primary, .btn-secondary, .btn-sky, .btn-nature {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  /* Glass card mobile padding */
+  .glass-card {
+    border-radius: var(--radius-md);
+  }
+
+  /* Badge row */
+  .badge-row {
+    gap: 5px;
+  }
+
+  .glass-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  /* Alert banners */
+  .alert-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  /* Section headings */
+  .section-heading {
+    font-size: 22px !important;
+  }
+
+  /* Card header */
+  .card-header, .chart-header, .preview-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  /* Form rows */
+  .form-row {
+    flex-direction: column !important;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    padding: 12px !important;
+    align-items: flex-end !important;
+  }
+
+  .modal-card, .resolve-modal {
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+  }
+
+  /* App footer */
+  .app-footer {
+    margin: 24px 8px 90px 8px !important;
+  }
+}
+
+/* ==========================================================================
+   Ultra-wide (> 1440px) — Ensure max-width containers
+   ========================================================================== */
+@media (min-width: 1441px) {
+  .page-container {
+    max-width: 1800px;
+  }
+}
+
+/* --- RTL responsive --- */
+[dir="rtl"] {
+  @media (max-width: 640px) {
+    .modal-card, .resolve-modal {
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+    }
+  }
+}
+
+/* --- Table mobile: horizontal scroll helper --- */
+.table-scroll-hint {
+  display: none;
+  font-size: 11px;
+  color: var(--text-light);
+  text-align: center;
+  padding: 4px 0 8px;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .table-scroll-hint { display: block; }
+}
+
+/* --- btn-coral global (used in citoyen dashboard) --- */
+.btn-coral {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  background: linear-gradient(135deg, #FF6B6B 0%, #D90429 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-full);
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.35);
+  transition: transform var(--transition-bounce), box-shadow var(--transition-fast);
+  text-decoration: none;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(255, 107, 107, 0.45);
+    color: #FFFFFF;
+  }
+}
+
+/* --- btn-text global --- */
+.btn-text {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sky-ocean);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+  &:hover { color: var(--sky-deep); }
+}
