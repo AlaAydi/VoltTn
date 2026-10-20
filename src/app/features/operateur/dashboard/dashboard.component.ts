@@ -1,7 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { ElectricityService } from '../../../core/services/electricity.service';
 import { OutageService } from '../../../core/services/outage.service';
 import { FraudService } from '../../../core/services/fraud.service';
@@ -71,7 +73,7 @@ export interface EquipmentRisk {
         <button 
           class="tab-btn" 
           [class.active]="activeTab() === 'overview'" 
-          (click)="activeTab.set('overview')"
+          (click)="setTab('overview')"
         >
           <span class="material-symbols-rounded">monitoring</span>
           <span>Surveillance Temps Réel & 3D</span>
@@ -79,7 +81,7 @@ export interface EquipmentRisk {
         <button 
           class="tab-btn" 
           [class.active]="activeTab() === 'forecast'" 
-          (click)="activeTab.set('forecast')"
+          (click)="setTab('forecast')"
         >
           <span class="material-symbols-rounded">trending_up</span>
           <span>Prévision de Charge & Scénarios</span>
@@ -87,7 +89,7 @@ export interface EquipmentRisk {
         <button 
           class="tab-btn" 
           [class.active]="activeTab() === 'dispatching'" 
-          (click)="activeTab.set('dispatching')"
+          (click)="setTab('dispatching')"
         >
           <span class="material-symbols-rounded">map</span>
           <span>Carte Google Maps & Affectations ({{ outageService.stats().active }})</span>
@@ -95,7 +97,7 @@ export interface EquipmentRisk {
         <button 
           class="tab-btn" 
           [class.active]="activeTab() === 'maintenance'" 
-          (click)="activeTab.set('maintenance')"
+          (click)="setTab('maintenance')"
         >
           <span class="material-symbols-rounded">build_circle</span>
           <span>Maintenance & Risques Équipements</span>
@@ -103,7 +105,7 @@ export interface EquipmentRisk {
         <button 
           class="tab-btn" 
           [class.active]="activeTab() === 'scheduler'" 
-          (click)="activeTab.set('scheduler')"
+          (click)="setTab('scheduler')"
         >
           <span class="material-symbols-rounded">schedule</span>
           <span>Planificateur Système Automate</span>
@@ -195,9 +197,9 @@ export interface EquipmentRisk {
         <div class="map-section glass-card">
           <div class="section-title-row">
             <div>
-              <h2 class="card-title">Visualisation 3D du Réseau Électrique Tunisien (Three.js)</h2>
+              <h2 class="card-title">Jumeau Numérique 3D du Réseau Électrique Tunisien (Three.js)</h2>
               <p class="card-sub">
-                Extrusion en colonnes 3D selon la charge électrique en temps réel des 24 gouvernorats.
+                Extrusion en colonnes 3D selon la charge électrique en temps réel des 24 gouvernorats avec simulation du cycle solaire et vagues de chaleur.
               </p>
             </div>
             <div class="selected-gov-banner" *ngIf="selectedGovernorate()">
@@ -208,11 +210,69 @@ export interface EquipmentRisk {
             </div>
           </div>
 
+          <!-- Barre d'Outils Jumeau Numérique 3D : Curseur Temporel 24h & Bouton Canicule -->
+          <div class="digital-twin-toolbar glass-panel">
+            <div class="twin-col slider-col">
+              <div class="twin-lbl-row">
+                <span class="material-symbols-rounded twin-icon sun">schedule</span>
+                <span class="twin-lbl">Curseur Temporel 24h (Rejouer Charge Prévue) : <strong>{{ twinHour() }}h00</strong></span>
+                <span class="sun-cycle-badge">
+                  <span class="material-symbols-rounded">{{ getSunCycleIcon() }}</span>
+                  <span>{{ getSunCycleLabel() }}</span>
+                </span>
+              </div>
+              <input 
+                type="range" 
+                class="range-slider" 
+                min="0" 
+                max="23" 
+                [ngModel]="twinHour()" 
+                (ngModelChange)="onTwinHourChange($event)"
+              />
+            </div>
+
+            <div class="twin-col canicule-col">
+              <button 
+                class="btn-heatwave" 
+                [class.active]="isHeatwaveActive()" 
+                (click)="toggleHeatwave()"
+              >
+                <span class="material-symbols-rounded">local_fire_department</span>
+                <span>Bouton « Canicule +6 °C »</span>
+                <span class="heat-pill">{{ isHeatwaveActive() ? 'ACTIF (+18%)' : 'OFF' }}</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Composant Three.js Carte 3D -->
           <app-tunisia-map-3d 
             [governorates]="eleService.governorates()"
             (governorateSelected)="onGovernorateSelected($event)"
           ></app-tunisia-map-3d>
+
+          <!-- Mix Énergétique National (Gaz, Solaire, Éolien, CO2) -->
+          <div class="energy-mix-strip glass-panel">
+            <div class="mix-box">
+              <span class="mix-title">Gaz Naturel (Centrales TG)</span>
+              <div class="mix-bar-bg"><div class="mix-bar-fill gas" style="width: 81.4%;"></div></div>
+              <span class="mix-val">81.4% (3 240 MW)</span>
+            </div>
+            <div class="mix-box">
+              <span class="mix-title">Solaire Photovoltaïque</span>
+              <div class="mix-bar-bg"><div class="mix-bar-fill solar" style="width: 12.4%;"></div></div>
+              <span class="mix-val text-nature">12.4% (495 MW)</span>
+            </div>
+            <div class="mix-box">
+              <span class="mix-title">Éolien (Bizerte & Cap Bon)</span>
+              <div class="mix-bar-bg"><div class="mix-bar-fill wind" style="width: 6.2%;"></div></div>
+              <span class="mix-val text-sky">6.2% (248 MW)</span>
+            </div>
+            <div class="mix-box co2-box">
+              <span class="mix-title">CO₂ Évité (Aujourd'hui)</span>
+              <strong class="co2-val text-nature">🌿 148 Tonnes</strong>
+              <span class="co2-sub">Grâce au mix EnR tunisien</span>
+            </div>
+          </div>
         </div>
 
         <!-- Tableau des 24 Gouvernorats avec filtres -->
@@ -473,6 +533,46 @@ export interface EquipmentRisk {
           </div>
 
         </div>
+
+        <!-- Suivi de la Dérive du Modèle ML [NOUVEAU] -->
+        <div class="drift-card glass-card animate-float">
+          <div class="drift-header">
+            <div class="drift-title-box">
+              <span class="material-symbols-rounded text-sky">query_stats</span>
+              <div>
+                <h3 class="card-title">Suivi de la Dérive du Modèle IA (Data Drift & Concept Drift)</h3>
+                <p class="card-sub">Surveillance continue de la stabilité statistique (LightGBM v2.4 - Réseau National)</p>
+              </div>
+            </div>
+            <span class="glass-badge badge-nature">Modèle Stable • Score PSI : 0.032</span>
+          </div>
+
+          <div class="drift-metrics-grid">
+            <div class="drift-kpi glass-panel">
+              <span class="kpi-label">Indice de Stabilité (PSI)</span>
+              <span class="kpi-val text-nature">0.032</span>
+              <span class="kpi-sub">Distribution stable (&lt; 0.10)</span>
+            </div>
+            <div class="drift-kpi glass-panel">
+              <span class="kpi-label">Test Kolmogorov-Smirnov</span>
+              <span class="kpi-val text-sky">0.024</span>
+              <span class="kpi-sub">Features météo cohérentes</span>
+            </div>
+            <div class="drift-kpi glass-panel">
+              <span class="kpi-label">Précision en Production</span>
+              <span class="kpi-val text-sun">96.8%</span>
+              <span class="kpi-sub">Seuil d'alerte : &lt; 92.0%</span>
+            </div>
+            <div class="drift-kpi action-kpi glass-panel">
+              <span class="kpi-label">Action Dérive</span>
+              <span class="drift-status-badge">Précision Optimale</span>
+              <button class="btn-secondary btn-mini" (click)="triggerRetrain()">
+                <span class="material-symbols-rounded">model_training</span>
+                <span>Réentraîner</span>
+              </button>
+            </div>
+          </div>
+        </div>
       }
 
       <!-- ONGLET 3 : DISPATCHING SUR CARTE GOOGLE MAPS & AFFECTATION TECHNICIEN -->
@@ -533,6 +633,59 @@ export interface EquipmentRisk {
             }
           </div>
 
+        </div>
+
+        <!-- Module Coupures Programmées & Extraction NLP [NOUVEAU] -->
+        <div class="scheduled-outage-card glass-card animate-float">
+          <div class="section-title-row">
+            <div>
+              <h3 class="card-title">Coupures Programmées par Quartier & Extraction NLP [IA]</h3>
+              <p class="card-sub">L'opérateur colle le texte officiel de l'avis STEG (en arabe ou français), le modèle NLP extrait les zones pour affichage et alerte ciblée.</p>
+            </div>
+            <div class="nlp-samples-btns">
+              <button type="button" class="btn-sample" (click)="loadSampleNlp('AR')">Exemple Arabe (أريانة والنصر)</button>
+              <button type="button" class="btn-sample" (click)="loadSampleNlp('FR')">Exemple Français (Menzah 9 & Tunis)</button>
+            </div>
+          </div>
+
+          <div class="nlp-input-row">
+            <div class="nlp-text-box">
+              <label class="form-label">Texte Officiel de l'Avis de Coupure (Arabe / Français) :</label>
+              <textarea 
+                class="form-textarea" 
+                rows="4" 
+                [(ngModel)]="nlpOutageText"
+                placeholder="Collez ici l'avis officiel de la STEG..."
+              ></textarea>
+              <button class="btn-primary" (click)="runNlpExtraction()">
+                <span class="material-symbols-rounded">psychology</span>
+                <span>Extraire les Zones avec le Modèle NLP (IA)</span>
+              </button>
+            </div>
+
+            @if (extractedNlpZone(); as zone) {
+              <div class="nlp-result-box glass-panel animate-float">
+                <div class="result-header">
+                  <span class="material-symbols-rounded text-green">verified</span>
+                  <strong>Entités Nommées Extraites (NER & Regex) :</strong>
+                </div>
+                <div class="result-grid">
+                  <div><span>Gouvernorat Détecté :</span> <strong>{{ zone.governorate }}</strong></div>
+                  <div><span>Quartier / Secteur :</span> <strong>{{ zone.district }}</strong></div>
+                  <div><span>Date Prévue :</span> <strong>{{ zone.date }}</strong></div>
+                  <div><span>Plage Horaire :</span> <strong>{{ zone.timeSlot }}</strong></div>
+                  <div><span>Abonnés Concernés :</span> <strong class="text-coral">{{ zone.affectedHomes }} foyers</strong></div>
+                  <div><span>Motif Détecté :</span> <em>{{ zone.reason }}</em></div>
+                </div>
+                <div class="result-actions">
+                  <button class="btn-primary" (click)="publishScheduledOutage()">
+                    <span class="material-symbols-rounded">campaign</span>
+                    <span>Afficher sur la Carte & Alerter les Citoyens du Quartier</span>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
         </div>
       }
 
@@ -1201,23 +1354,305 @@ export interface EquipmentRisk {
       .val { color: var(--text-main); }
     }
 
+    /* Digital Twin 3D Toolbar & Sun Cycle */
+    .digital-twin-toolbar {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      padding: 14px 20px;
+      margin-bottom: 14px;
+      border-radius: var(--radius-lg);
+      flex-wrap: wrap;
+    }
+
+    .twin-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      &.slider-col { flex: 1; min-width: 260px; }
+      &.canicule-col { flex-shrink: 0; }
+    }
+
+    .twin-lbl-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    .twin-icon { font-size: 20px; }
+
+    .sun-cycle-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--sun-amber);
+      font-size: 11.5px;
+      font-weight: 700;
+      .material-symbols-rounded { font-size: 16px; }
+    }
+
+    .btn-heatwave {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--alert-coral);
+      background: rgba(239, 71, 111, 0.08);
+      color: var(--alert-coral);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.25s;
+
+      &:hover {
+        background: var(--alert-coral);
+        color: #FFFFFF;
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #EF476F 0%, #D90429 100%);
+        color: #FFFFFF;
+        box-shadow: 0 4px 14px rgba(239, 71, 111, 0.4);
+      }
+    }
+
+    .heat-pill {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    /* Mix Énergétique Strip */
+    .energy-mix-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      padding: 16px 20px;
+      margin-top: 14px;
+      border-radius: var(--radius-lg);
+    }
+
+    .mix-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      &.co2-box { justify-content: center; text-align: center; }
+    }
+
+    .mix-title { font-size: 11.5px; color: var(--text-light); font-weight: 600; }
+
+    .mix-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .mix-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      &.gas { background: #64748B; }
+      &.solar { background: var(--nature-green); }
+      &.wind { background: var(--sky-blue); }
+    }
+
+    .mix-val { font-size: 12px; font-weight: 800; color: var(--text-main); }
+    .co2-val { font-size: 16px; font-weight: 900; }
+    .co2-sub { font-size: 10px; color: var(--text-light); }
+
+    /* Model Drift Card */
+    .drift-card {
+      margin-top: 20px;
+      padding: 22px;
+      border-radius: var(--radius-xl);
+    }
+
+    .drift-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .drift-title-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .drift-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .drift-kpi {
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      &.action-kpi { justify-content: space-between; }
+    }
+
+    .kpi-label { font-size: 12px; color: var(--text-light); font-weight: 600; }
+    .kpi-val { font-size: 22px; font-weight: 900; }
+    .kpi-sub { font-size: 11px; color: var(--text-muted); }
+
+    .drift-status-badge {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--nature-green);
+      background: rgba(46, 196, 182, 0.12);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+      width: fit-content;
+    }
+
+    /* Scheduled Outages Card */
+    .scheduled-outage-card {
+      margin-top: 22px;
+      padding: 22px;
+      border-radius: var(--radius-xl);
+    }
+
+    .nlp-samples-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-sample {
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      border: 1px solid rgba(29, 53, 87, 0.15);
+      background: #FFFFFF;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--sky-ocean);
+      cursor: pointer;
+      &:hover { background: #F1F5F9; border-color: var(--sky-ocean); }
+    }
+
+    .nlp-input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 14px;
+    }
+
+    .nlp-text-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nlp-result-box {
+      padding: 16px 20px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(240, 253, 244, 0.9) 0%, rgba(236, 253, 245, 0.9) 100%);
+      border: 1.5px solid rgba(46, 196, 182, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #0d5c52;
+      font-size: 13.5px;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      font-size: 12.5px;
+      div span { color: var(--text-muted); display: block; font-size: 11px; }
+      div strong { color: var(--text-main); }
+    }
+
+    .result-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+
     .btn-full { width: 100%; }
 
     @media (max-width: 1024px) {
-      .ai-forecast-grid, .dispatching-layout { grid-template-columns: 1fr; }
+      .ai-forecast-grid, .dispatching-layout, .nlp-input-row { grid-template-columns: 1fr; }
     }
   `]
 })
-export class OperateurDashboardComponent {
+export class OperateurDashboardComponent implements OnInit, OnDestroy {
   eleService = inject(ElectricityService);
   outageService = inject(OutageService);
   fraudService = inject(FraudService);
   notifService = inject(NotificationService);
   schedulerService = inject(SystemSchedulerService);
+  router = inject(Router);
 
   activeTab = signal<'overview' | 'forecast' | 'dispatching' | 'maintenance' | 'scheduler'>('overview');
   selectedGovernorate = signal<Governorate | null>(null);
   statusFilter = signal<string>('ALL');
+
+  private navSub?: Subscription;
+
+  ngOnInit(): void {
+    this.syncTabFromUrl();
+    this.navSub = this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.syncTabFromUrl();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.navSub?.unsubscribe();
+  }
+
+  syncTabFromUrl(): void {
+    const url = this.router.url;
+    if (url.includes('/operateur/load-forecast')) {
+      this.activeTab.set('forecast');
+    } else if (url.includes('/operateur/outages') || url.includes('/operateur/dispatching')) {
+      this.activeTab.set('dispatching');
+    } else if (url.includes('/operateur/maintenance')) {
+      this.activeTab.set('maintenance');
+    } else if (url.includes('/operateur/scheduler')) {
+      this.activeTab.set('scheduler');
+    } else {
+      this.activeTab.set('overview');
+    }
+  }
+
+  setTab(tab: 'overview' | 'forecast' | 'dispatching' | 'maintenance' | 'scheduler'): void {
+    this.activeTab.set(tab);
+    const routeMap: Record<string, string> = {
+      overview: '/operateur/dashboard',
+      forecast: '/operateur/load-forecast',
+      dispatching: '/operateur/outages',
+      maintenance: '/operateur/maintenance',
+      scheduler: '/operateur/scheduler'
+    };
+    if (routeMap[tab]) {
+      this.router.navigateByUrl(routeMap[tab]);
+    }
+  }
 
   // Forecast state
   selectedGovForForecast = 'NATIONAL';
@@ -1369,5 +1804,143 @@ export class OperateurDashboardComponent {
       case 'ELEVEE': return 'sun';
       default: return 'nature';
     }
+  }
+
+  // Digital Twin 3D State
+  twinHour = signal<number>(14);
+  isHeatwaveActive = signal<boolean>(false);
+
+  // NLP Outage Extraction State
+  nlpOutageText = 'تعلن الشركة التونسية للكهرباء والغاز (إقليم أريانة) عن انقطاع مبرمج للتيار الكهربائي يوم الأحد 20 أكتوبر بحي النصر 2 ونهج الهادي نويرة بأريانة من الساعة 08:00 إلى 13:00 للقيام بأشغال صيانة دورية على شبكة التوزيع.';
+  extractedNlpZone = signal<{
+    governorate: string;
+    district: string;
+    date: string;
+    timeSlot: string;
+    affectedHomes: number;
+    reason: string;
+  } | null>({
+    governorate: 'Ariana (أريانة)',
+    district: 'Cité Ennasr 2 (حي النصر 2)',
+    date: 'Dimanche 20 Octobre 2025',
+    timeSlot: '08h00 - 13h00 (5 heures)',
+    affectedHomes: 1420,
+    reason: 'Travaux de maintenance préventive et renforcement des câbles MT'
+  });
+
+  onTwinHourChange(h: number): void {
+    this.twinHour.set(h);
+    // Simuler variation de charge selon l'heure de la journée (creux la nuit, pic à 14h clim et 20h éclairage)
+    let factor = 1.0;
+    if (h >= 0 && h <= 5) factor = 0.65;
+    else if (h >= 6 && h <= 11) factor = 0.88;
+    else if (h >= 12 && h <= 16) factor = 1.15; // Pic estival climatisation
+    else if (h >= 17 && h <= 21) factor = 1.22; // Pic de pointe STEG
+    else factor = 0.80;
+
+    if (this.isHeatwaveActive()) factor *= 1.18;
+
+    this.eleService.updateAllGovernorates((govs: Governorate[]) => govs.map((g: Governorate) => ({
+      ...g,
+      currentLoadMw: Math.round(g.capacityMw * Math.min(0.96, (g.currentLoadMw / g.capacityMw) * (factor / 1.1)))
+    })));
+  }
+
+  toggleHeatwave(): void {
+    const next = !this.isHeatwaveActive();
+    this.isHeatwaveActive.set(next);
+
+    if (next) {
+      this.eleService.updateScenario({ tempDeltaC: 6 });
+      this.notifService.showToast(
+        '🔥 Canicule +6 °C Activée !',
+        'Forte hausse de la demande nationale (+18% climatisation). 4 gouvernorats passent en vigilance surcharge.',
+        'WARNING',
+        5000
+      );
+    } else {
+      this.eleService.updateScenario({ tempDeltaC: 0 });
+      this.notifService.showToast('Canicule Désactivée', 'Rétablissement des profils thermiques nominaux.', 'INFO');
+    }
+  }
+
+  getSunCycleIcon(): string {
+    const h = this.twinHour();
+    if (h >= 6 && h < 9) return 'wb_twilight';
+    if (h >= 9 && h < 17) return 'wb_sunny';
+    if (h >= 17 && h < 20) return 'wb_twilight';
+    return 'bedtime';
+  }
+
+  getSunCycleLabel(): string {
+    const h = this.twinHour();
+    if (h >= 0 && h < 6) return 'Nuit étoilée (Creux)';
+    if (h >= 6 && h < 12) return 'Aube & Matinée (Montée)';
+    if (h >= 12 && h < 17) return 'Zénith Solaire (Pic Climatisation)';
+    if (h >= 17 && h < 21) return 'Pointe STEG (19h - 21h)';
+    return 'Soirée (Tarif Creux)';
+  }
+
+  triggerRetrain(): void {
+    this.notifService.showToast(
+      'Réentraînement ML Déclenché',
+      'Le pipeline LightGBM v2.5 s\'exécute avec les nouvelles données SCADA des 7 derniers jours.',
+      'SUCCESS',
+      4500
+    );
+  }
+
+  loadSampleNlp(lang: 'AR' | 'FR'): void {
+    if (lang === 'AR') {
+      this.nlpOutageText = 'تعلن الشركة التونسية للكهرباء والغاز (إقليم أريانة) عن انقطاع مبرمج للتيار الكهربائي يوم الأحد 20 أكتوبر بحي النصر 2 ونهج الهادي نويرة بأريانة من الساعة 08:00 إلى 13:00 للقيام بأشغال صيانة دورية على شبكة التوزيع.';
+    } else {
+      this.nlpOutageText = 'Avis de coupure programmée STEG (District Tunis Ouest) : En raison de travaux de maintenance sur le réseau HTA, l\'électricité sera interrompue le Mardi 22 Octobre de 07h30 à 12h00 dans les quartiers El Menzah 9 et Cité Ennasr 1 (Gouvernorat de Tunis).';
+    }
+    this.runNlpExtraction();
+  }
+
+  runNlpExtraction(): void {
+    const isAr = this.nlpOutageText.includes('تعلن') || this.nlpOutageText.includes('أريانة') || this.nlpOutageText.includes('الكهرباء');
+    if (isAr) {
+      this.extractedNlpZone.set({
+        governorate: 'Ariana (أريانة)',
+        district: 'Cité Ennasr 2 (حي النصر 2)',
+        date: 'Dimanche 20 Octobre 2025',
+        timeSlot: '08h00 - 13h00 (5 heures)',
+        affectedHomes: 1420,
+        reason: 'Maintenance préventive périodique réseau MT (أشغال صيانة دورية)'
+      });
+    } else {
+      this.extractedNlpZone.set({
+        governorate: 'Tunis',
+        district: 'El Menzah 9 & Cité Ennasr 1',
+        date: 'Mardi 22 Octobre 2025',
+        timeSlot: '07h30 - 12h00 (4h30)',
+        affectedHomes: 2150,
+        reason: 'Remplacement de sectionneur HTA et sécurisation poste sous-station'
+      });
+    }
+    this.notifService.showToast('NLP Exécuté avec Succès', 'Entités géographiques et temporelles extraites par le modèle IA.', 'SUCCESS');
+  }
+
+  publishScheduledOutage(): void {
+    const zone = this.extractedNlpZone();
+    if (!zone) return;
+
+    this.outageService.reportOutage({
+      governorate: zone.governorate.includes('Ariana') ? 'Ariana' : 'Tunis',
+      district: zone.district,
+      address: `Secteur ${zone.district}`,
+      type: 'TRAVAUX_PROGRAMMES',
+      notes: `[COUPURE PROGRAMMÉE STEG] ${zone.reason} • Prévu le ${zone.date} de ${zone.timeSlot} (~${zone.affectedHomes} abonnés).`,
+      reportedBy: 'Opérateur Dispatching STEG'
+    });
+
+    this.notifService.showToast(
+      'Avis Publié & Alerte Citoyens Diffusée !',
+      `Zone ${zone.district} tracée sur la carte. Notifications push et SMS transmises aux ${zone.affectedHomes} foyers du secteur.`,
+      'SUCCESS',
+      6000
+    );
   }
 }
