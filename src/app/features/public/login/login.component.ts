@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -75,7 +75,7 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
           <div class="form-group">
             <div class="label-row">
               <label class="form-label">Mot de Passe :</label>
-              <a href="javascript:void(0)" class="forgot-link" (click)="showPasswordHint()">Mot de passe oublié ?</a>
+              <a href="javascript:void(0)" class="forgot-link" (click)="openForgotModal()">Mot de passe oublié ?</a>
             </div>
             <div class="input-with-icon">
               <span class="material-symbols-rounded input-icon">lock</span>
@@ -102,6 +102,58 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
         </div>
 
       </div>
+
+      <!-- Modal Mot de Passe Oublié -->
+      @if (showForgotModal()) {
+        <div class="modal-overlay" (click)="closeForgotModal()">
+          <div class="modal-content glass-card animate-float" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <div class="modal-icon-badge">
+                <span class="material-symbols-rounded">lock_reset</span>
+              </div>
+              <h2 class="modal-title">Mot de Passe Oublié</h2>
+              <button class="btn-close-modal" (click)="closeForgotModal()">
+                <span class="material-symbols-rounded">close</span>
+              </button>
+            </div>
+            
+            <p class="modal-desc">
+              Entrez l'adresse email associée à votre compte VoltTN. Nous vous enverrons un lien sécurisé pour redéfinir votre mot de passe.
+            </p>
+
+            @if (resetSent()) {
+              <div class="success-banner animate-float">
+                <span class="material-symbols-rounded text-green">mark_email_read</span>
+                <div>
+                  <strong>Email envoyé !</strong>
+                  <p>Un lien de réinitialisation et un code temporaire ont été transmis à <strong>{{ forgotEmail }}</strong>.</p>
+                </div>
+              </div>
+            } @else {
+              <div class="form-group">
+                <label class="form-label">Votre Email :</label>
+                <div class="input-with-icon">
+                  <span class="material-symbols-rounded input-icon">mail</span>
+                  <input 
+                    type="email" 
+                    class="form-input" 
+                    [(ngModel)]="forgotEmail" 
+                    placeholder="ex: citoyen@volttn.tn" 
+                  />
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button type="button" class="btn-secondary" (click)="closeForgotModal()">Annuler</button>
+                <button type="button" class="btn-primary" (click)="sendResetLink()">
+                  <span class="material-symbols-rounded">send</span>
+                  <span>Envoyer les instructions</span>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
 
     </div>
   `,
@@ -302,6 +354,96 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
       color: var(--sun-amber);
       &:hover { text-decoration: underline; }
     }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+
+    .modal-content {
+      width: 100%;
+      max-width: 480px;
+      padding: 32px;
+      background: #FFFFFF;
+      border-radius: var(--radius-xl);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .modal-icon-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--sun-amber);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      .material-symbols-rounded { font-size: 26px; }
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-main);
+      flex: 1;
+      margin-left: 12px;
+    }
+
+    .btn-close-modal {
+      background: none;
+      border: none;
+      color: var(--text-light);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 50%;
+      transition: background 0.2s;
+      &:hover { background: #f1f5f9; color: var(--text-main); }
+    }
+
+    .modal-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .success-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: rgba(46, 196, 182, 0.12);
+      border: 1px solid rgba(46, 196, 182, 0.3);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      color: #0d5c52;
+      font-size: 13.5px;
+      line-height: 1.4;
+      strong { display: block; font-size: 15px; margin-bottom: 4px; color: #09473f; }
+    }
   `]
 })
 export class LoginComponent {
@@ -313,6 +455,10 @@ export class LoginComponent {
   password = 'citoyen123';
   errorMessage = '';
 
+  showForgotModal = signal(false);
+  forgotEmail = '';
+  resetSent = signal(false);
+
   fillCredentials(role: UserRole): void {
     const creds = this.authService.getDemoCredentials(role);
     this.email = creds.email;
@@ -320,8 +466,28 @@ export class LoginComponent {
     this.errorMessage = '';
   }
 
-  showPasswordHint(): void {
-    alert('Pour les comptes de test, utilisez le mot de passe indiqué (ex: citoyen123, operateur123, technicien123, admin123).');
+  openForgotModal(): void {
+    this.forgotEmail = this.email || '';
+    this.resetSent.set(false);
+    this.showForgotModal.set(true);
+  }
+
+  closeForgotModal(): void {
+    this.showForgotModal.set(false);
+  }
+
+  sendResetLink(): void {
+    if (!this.forgotEmail.trim()) {
+      alert('Veuillez renseigner votre adresse email.');
+      return;
+    }
+    this.resetSent.set(true);
+    this.notifService.showToast(
+      'Lien de réinitialisation envoyé !',
+      `Instructions transmises à ${this.forgotEmail} avec un code temporaire.`,
+      'SUCCESS',
+      5000
+    );
   }
 
   onSubmit(): void {

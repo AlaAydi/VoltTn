@@ -88,6 +88,9 @@ export interface AuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
+  isLoggedIn(): boolean {
+    return this.currentUserSignal() !== null;
+  }
   private accountsSignal = signal<RegisteredAccount[]>(INITIAL_ACCOUNTS);
   private currentUserSignal = signal<User | null>(null);
 
