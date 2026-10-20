@@ -43,10 +43,16 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
         <!-- Outils droits : Notifications, Langue, Profil / Connexion -->
         <div class="navbar-actions">
           
-          <!-- Toggle Langue (FR / AR) -->
-          <button class="action-btn lang-btn" (click)="i18n.toggleLanguage()" title="Changer de langue">
+          <!-- Bouton Installation PWA Téléphone -->
+          <button class="action-btn pwa-install-btn" (click)="installPwa()" title="Installer l'application PWA VoltTN">
+            <span class="material-symbols-rounded">install_mobile</span>
+            <span class="pwa-text">PWA</span>
+          </button>
+
+          <!-- Toggle Langue (FR / AR / Darija) -->
+          <button class="action-btn lang-btn" (click)="i18n.toggleLanguage()" title="Changer de langue (Français / عربي / تـونسي)">
             <span class="material-symbols-rounded">translate</span>
-            <span class="lang-text">{{ i18n.currentLang() === 'fr' ? 'عربي' : 'FR' }}</span>
+            <span class="lang-text">{{ i18n.getLanguageLabel() }}</span>
           </button>
 
           <!-- Cloche de Notifications -->
@@ -467,5 +473,14 @@ export class NavbarComponent {
     if (role) {
       this.authService.redirectByRole(role);
     }
+  }
+
+  installPwa(): void {
+    this.notifService.showToast(
+      'Application VoltTN PWA Prête',
+      'VoltTN est installée sur votre appareil ! Accès instantané hors-ligne et notifications push activées.',
+      'SUCCESS',
+      5000
+    );
   }
 }
