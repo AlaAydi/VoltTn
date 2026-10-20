@@ -635,8 +635,53 @@ export interface MonthlyChallenge {
       .material-symbols-rounded { font-size: 16px; }
     }
 
-    @media (max-width: 992px) {
+    /* ===== RESPONSIVE ECO COACH ===== */
+
+    /* Tablet (641px – 1024px) */
+    @media (max-width: 1024px) {
       .coach-top-grid, .coach-bottom-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Mobile (≤ 640px) */
+    @media (max-width: 640px) {
+      .coach-page { gap: 12px; }
+
+      .coach-header {
+        flex-direction: column !important;
+        gap: 12px;
+        padding: 16px !important;
+      }
+      .header-title { font-size: 18px; }
+      .header-desc { font-size: 12.5px; }
+      .header-actions { width: 100%; button { width: 100%; } }
+
+      .score-card, .optimizer-card { padding: 18px; }
+
+      .gauge-wrapper {
+        width: 140px !important;
+        height: 140px !important;
+      }
+      .gauge-center-content .score-num { font-size: 34px; }
+
+      .schedule-clock-bar { padding: 12px; gap: 8px; }
+      .clock-segment { padding: 8px 12px; }
+      .seg-rate { font-size: 12px; }
+
+      .appliance-buttons { gap: 6px; }
+      .appliance-btn { padding: 6px 10px; font-size: 11.5px; }
+
+      /* Ranking table: scrollable */
+      .ranking-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+      /* Challenges list */
+      .challenge-card { padding: 14px 16px; gap: 8px; }
+      .ch-top strong { font-size: 12.5px; }
+    }
+
+    /* Small mobile (≤ 380px) */
+    @media (max-width: 380px) {
+      .coach-top-grid { gap: 10px; }
+      .appliance-buttons { flex-wrap: wrap; }
     }
   `]
 })

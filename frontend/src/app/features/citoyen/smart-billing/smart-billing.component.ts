@@ -1172,8 +1172,72 @@ export interface MeterReading {
 
     .badge-mini-icon { font-size: 14px; margin-right: 4px; }
 
-    @media (max-width: 992px) {
+    /* ===== RESPONSIVE SMART BILLING ===== */
+
+    /* Tablet (641px – 1024px) */
+    @media (max-width: 1024px) {
       .explainer-grid, .ocr-layout, .whatif-grid { grid-template-columns: 1fr; }
+      .billing-tabs-nav {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 4px;
+      }
+    }
+
+    /* Mobile (≤ 640px) */
+    @media (max-width: 640px) {
+      .smart-billing-page { gap: 12px; }
+
+      .billing-header {
+        flex-direction: column !important;
+        gap: 14px;
+        padding: 16px !important;
+      }
+      .header-title { font-size: 18px; }
+      .header-desc { font-size: 12.5px; }
+
+      .bill-summary-pill {
+        width: 100%;
+        text-align: center;
+      }
+
+      .billing-tabs-nav {
+        padding: 6px 10px;
+        gap: 4px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        display: flex;
+        flex-wrap: nowrap;
+      }
+      .tab-btn {
+        padding: 6px 10px;
+        font-size: 11.5px;
+        white-space: nowrap;
+      }
+
+      .steptiers-card { padding: 16px; }
+      .ocr-scanner-card, .ocr-guide-card,
+      .sim-controls-card, .sim-result-card { padding: 16px; }
+
+      .scanner-viewport { min-height: 220px; }
+      .active-scan-container { height: 260px; }
+
+      .i-boxes-row {
+        gap: 10px;
+      }
+
+      /* History table scrollable */
+      .table-responsive { border-radius: var(--radius-md); }
+    }
+
+    /* Small mobile (≤ 380px) */
+    @media (max-width: 380px) {
+      .billing-tabs-nav { padding: 6px 8px; }
+      .tab-btn { font-size: 10.5px; padding: 5px 8px; }
     }
   `]
 })

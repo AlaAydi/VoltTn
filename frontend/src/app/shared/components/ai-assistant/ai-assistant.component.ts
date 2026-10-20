@@ -537,6 +537,80 @@ export interface ChatMessage {
       &:disabled { opacity: 0.4; cursor: not-allowed; }
       .material-symbols-rounded { font-size: 18px; }
     }
+
+   
+    @media (max-width: 1024px) {
+      .chat-window {
+        width: 360px;
+      }
+      .assistant-floating-container {
+        bottom: 20px;
+        right: 20px;
+      }
+    }
+
+
+    @media (max-width: 640px) {
+      .assistant-floating-container {
+        bottom: 76px;
+        right: 12px;
+      }
+
+      [dir="rtl"] .assistant-floating-container {
+        right: auto;
+        left: 12px;
+      }
+
+      .assistant-trigger-btn {
+        padding: 8px 14px 8px 10px;
+        gap: 8px;
+      }
+
+      .bot-caption { font-size: 12px; }
+
+      .chat-window {
+        position: fixed;
+        bottom: 70px; /* above bottom nav */
+        right: 8px;
+        left: 8px;
+        width: calc(100vw - 16px);
+        max-width: none;
+        height: auto;
+        max-height: 80vh;
+        border-radius: var(--radius-xl);
+        box-shadow: 0 -4px 30px rgba(29, 53, 87, 0.25);
+      }
+
+      [dir="rtl"] .chat-window {
+        right: 8px;
+        left: 8px;
+      }
+
+      .chat-messages-body {
+        max-height: 45vh;
+      }
+
+      .chat-header {
+        padding: 10px 14px;
+      }
+
+      .bot-name { font-size: 13px; }
+      .bot-status { font-size: 10px; }
+
+      .suggested-chips-bar {
+        padding: 6px 10px;
+      }
+    }
+
+    /* Extra small (≤ 380px) */
+    @media (max-width: 380px) {
+      .chat-window {
+        right: 4px;
+        left: 4px;
+        width: calc(100vw - 8px);
+        max-height: 75vh;
+      }
+    }
   `]
 })
 export class AiAssistantComponent {
