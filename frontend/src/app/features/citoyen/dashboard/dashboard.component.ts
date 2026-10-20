@@ -1167,10 +1167,83 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
       color: var(--text-light);
     }
 
+    /* ===== RESPONSIVE CITOYEN DASHBOARD ===== */
+
+    /* Tablet (641px – 1024px) */
     @media (max-width: 1024px) {
       .main-grid { grid-template-columns: 1fr; }
       .welcome-banner { flex-direction: column; align-items: flex-start; gap: 16px; }
-      .banner-actions { flex-direction: row; }
+      .banner-actions { flex-direction: row; flex-wrap: wrap; }
+      .dashboard-page { gap: 16px; }
+    }
+
+    /* Mobile (≤ 640px) */
+    @media (max-width: 640px) {
+      .dashboard-page { gap: 12px; }
+
+      .welcome-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px !important;
+      }
+      .welcome-title { font-size: 20px; }
+      .welcome-desc { font-size: 12.5px; }
+
+      .banner-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+        button, a { width: 100%; justify-content: center; }
+      }
+
+      .alert-banner {
+        padding: 14px !important;
+        gap: 10px;
+      }
+      .alert-text { min-width: 0; }
+
+      .main-grid { grid-template-columns: 1fr; gap: 12px; }
+
+      .meter-card { padding: 16px; gap: 12px; }
+      .card-title { font-size: 17px; }
+      .card-title-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+      .meter-footer-metrics {
+        grid-template-columns: repeat(3, 1fr);
+        padding: 10px 12px;
+        gap: 8px;
+      }
+      .f-metric .value { font-size: 13px; }
+
+      .stat-card { padding: 14px; gap: 12px; }
+      .stat-value-row .stat-value { font-size: 18px; }
+
+      .chart-card { padding: 16px; gap: 14px; }
+      .chart-header { flex-direction: column; gap: 10px; }
+      .chart-tabs { flex-wrap: wrap; }
+
+      .ai-forecast-row {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      /* Modal full bottom-sheet on mobile */
+      .modal-backdrop { padding: 0 !important; align-items: flex-end !important; }
+      .modal-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0 !important;
+        max-height: 92vh;
+        overflow-y: auto;
+      }
+      .modal-footer { flex-wrap: wrap; gap: 8px; button { flex: 1; } }
+    }
+
+    /* Small mobile (≤ 380px) */
+    @media (max-width: 380px) {
+      .meter-footer-metrics { grid-template-columns: 1fr 1fr; }
+      .chart-tabs button { font-size: 11px; padding: 5px 10px; }
     }
   `]
 })
