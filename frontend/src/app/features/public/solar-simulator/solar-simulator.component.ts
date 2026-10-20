@@ -534,9 +534,46 @@ import { Solar3dComponent } from '../../../shared/components/solar-3d/solar-3d.c
       gap: 8px;
     }
 
-    @media (max-width: 992px) {
+    /* ===== RESPONSIVE SOLAR SIMULATOR ===== */
+
+    /* Tablet (641px – 1024px) */
+    @media (max-width: 1024px) {
       .simulator-layout { grid-template-columns: 1fr; }
+      .actions-buttons-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* Mobile (≤ 640px) */
+    @media (max-width: 640px) {
+      .solar-page { gap: 12px; }
+
+      .solar-header { padding: 16px !important; }
+      .header-title { font-size: 18px; }
+      .header-desc { font-size: 12.5px; }
+
+      .simulator-layout { grid-template-columns: 1fr; gap: 12px; }
+
+      .params-column { padding: 18px; }
+      .inputs-list { gap: 14px; }
+
+      .orientations-pills { flex-wrap: wrap; gap: 6px; }
+      .orient-pill { padding: 6px 12px; font-size: 12px; }
+
+      .results-grid { grid-template-columns: 1fr; gap: 10px; }
+      .res-card { padding: 14px; }
+      .r-val { font-size: 20px; }
+
+      .funding-card { padding: 18px; }
+
       .actions-buttons-grid { grid-template-columns: 1fr; }
+      .btn-cta { padding: 12px 16px; font-size: 13px; }
+
+      .monthly-chart-box { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+
+    /* Small mobile (≤ 380px) */
+    @media (max-width: 380px) {
+      .params-column { padding: 14px; }
+      .r-val { font-size: 18px; }
     }
   `]
 })
