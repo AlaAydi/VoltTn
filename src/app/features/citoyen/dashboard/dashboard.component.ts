@@ -14,8 +14,7 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
   imports: [CommonModule, FormsModule, RouterModule, Meter3dComponent, Tilt3dDirective],
   template: `
     <div class="dashboard-page">
-      
-      <!-- Bannière d'accueil chaleureuse et lumineuse -->
+
       <div class="welcome-banner glass-card animate-float">
         <div class="banner-content">
           <div class="badge-row">
@@ -30,7 +29,7 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
             Bonjour, {{ authService.currentUser()?.name }} !
           </h1>
           <p class="welcome-desc">
-            Votre foyer consomme en direct <strong class="highlight-val">{{ citizenService.currentPowerKw() }} kW</strong>. 
+            Votre foyer consomme en direct <strong class="highlight-val">{{ citizenService.currentPowerKw() }} kW</strong>.
             Votre production solaire a couvert <strong class="highlight-nature">24%</strong> de vos besoins ce mois-ci.
           </p>
         </div>
@@ -88,7 +87,7 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
 
       <!-- Grille Principale : Compteur 3D + Chiffres Clés -->
       <div class="main-grid">
-        
+
         <!-- Carte Compteur 3D Interactif (Three.js) -->
         <div class="glass-card meter-card" appTilt3d [maxTilt]="6">
           <div class="card-header">
@@ -109,7 +108,7 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
           </div>
 
           <!-- Composant Three.js -->
-          <app-meter-3d 
+          <app-meter-3d
             [powerKw]="citizenService.currentPowerKw()"
             [todayKwh]="citizenService.consumption().todayKwh"
           ></app-meter-3d>
@@ -132,7 +131,7 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
 
         <!-- 3 Cartes Métriques Clés avec perspective 3D -->
         <div class="stats-column">
-          
+
           <div class="stat-card glass-card" appTilt3d [maxTilt]="8">
             <div class="stat-icon-wrapper sun">
               <span class="material-symbols-rounded">receipt_long</span>
@@ -187,8 +186,8 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
                 <span class="stat-unit">kWh / mois</span>
               </div>
               <div class="progress-bar-bg">
-                <div 
-                  class="progress-bar-fill" 
+                <div
+                  class="progress-bar-fill"
                   [class.coral]="isOverThreshold()"
                   [class.nature]="!isOverThreshold()"
                   [style.width.%]="Math.min(100, (citizenService.consumption().monthForecastKwh / consumptionThresholdKwh()) * 100)"
@@ -212,22 +211,22 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
             <p class="card-sub">Courbes horaires, journalières et saisonnières avec comparaison moyenne des foyers tunisiens</p>
           </div>
           <div class="chart-tabs">
-            <button 
-              class="tab-btn" 
+            <button
+              class="tab-btn"
               [class.active]="selectedTab() === 'hourly'"
               (click)="selectedTab.set('hourly')"
             >
               Aujourd'hui (Heures)
             </button>
-            <button 
-              class="tab-btn" 
+            <button
+              class="tab-btn"
               [class.active]="selectedTab() === 'daily'"
               (click)="selectedTab.set('daily')"
             >
               7 Derniers Jours (vs Semaine Préc.)
             </button>
-            <button 
-              class="tab-btn" 
+            <button
+              class="tab-btn"
               [class.active]="selectedTab() === 'monthly'"
               (click)="selectedTab.set('monthly')"
             >
@@ -244,8 +243,8 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
                 <div class="bar-col">
                   <div class="bar-val">{{ h.kwh }}</div>
                   <div class="bar-track">
-                    <div 
-                      class="bar-fill" 
+                    <div
+                      class="bar-fill"
                       [class.peak]="h.isPeak"
                       [style.height.%]="(h.kwh / 3.5) * 100"
                     ></div>
@@ -260,13 +259,13 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
                 <div class="bar-col">
                   <div class="bar-val">{{ d.kwh }} kWh</div>
                   <div class="bar-track">
-                    <div 
-                      class="bar-fill sky" 
+                    <div
+                      class="bar-fill sky"
                       [style.height.%]="(d.kwh / 22) * 100"
                     ></div>
-                    <div 
-                      class="bar-ref-line" 
-                      [style.bottom.%]="(d.previousWeekKwh / 22) * 100" 
+                    <div
+                      class="bar-ref-line"
+                      [style.bottom.%]="(d.previousWeekKwh / 22) * 100"
                       title="Semaine précédente: {{ d.previousWeekKwh }} kWh"
                     ></div>
                   </div>
@@ -282,13 +281,13 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
                   <div class="bar-val">{{ m.kwh }}</div>
                   <div class="bar-track">
                     <!-- Barre de référence : moyenne régionale -->
-                    <div 
-                      class="bar-regional-ref" 
+                    <div
+                      class="bar-regional-ref"
                       [style.height.%]="(m.regionalAverageKwh / 700) * 100"
                       title="Moyenne régionale: {{ m.regionalAverageKwh }} kWh"
                     ></div>
-                    <div 
-                      class="bar-fill" 
+                    <div
+                      class="bar-fill"
                       [class.peak-summer]="m.month === 'Juil' || m.month === 'Août'"
                       [style.height.%]="(m.kwh / 700) * 100"
                     ></div>
@@ -480,13 +479,13 @@ import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
                   <span class="t-kwh">{{ tempThreshold }} kWh</span>
                   <span class="t-cost">~{{ (tempThreshold * 0.338) | number:'1.0-0' }} DT</span>
                 </div>
-                <input 
-                  type="range" 
-                  class="range-slider" 
-                  min="150" 
-                  max="800" 
-                  step="10" 
-                  [(ngModel)]="tempThreshold" 
+                <input
+                  type="range"
+                  class="range-slider"
+                  min="150"
+                  max="800"
+                  step="10"
+                  [(ngModel)]="tempThreshold"
                 />
                 <div class="slider-limits">
                   <span>150 kWh (Frugal)</span>
