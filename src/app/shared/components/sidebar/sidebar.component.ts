@@ -1,9 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { AuthService } from '@core/services/auth.service';
-import { I18nService } from '@core/services/i18n.service';
-import { TranslatePipe } from '@shared/pipes/translate.pipe';
+import { AuthService } from '../../../core/services/auth.service';
+import { I18nService } from '../../../core/services/i18n.service';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 interface NavItem {
   path: string;
@@ -320,6 +320,8 @@ export class SidebarComponent {
         return [
           { path: '/citoyen/dashboard', labelKey: 'nav.dashboard', icon: 'speed', badge: 'En direct', badgeColor: 'sun' },
           { path: '/citoyen/consumption', labelKey: 'nav.consumption', icon: 'monitoring' },
+          { path: '/citoyen/billing', labelKey: 'nav.billing', icon: 'receipt_long', badge: 'OCR + IA', badgeColor: 'sky' },
+          { path: '/citoyen/coach', labelKey: 'nav.coach', icon: 'workspace_premium', badge: 'Éco-Score', badgeColor: 'nature' },
           { path: '/citoyen/report-outage', labelKey: 'nav.report_outage', icon: 'report_problem', badgeColor: 'coral' },
           { path: '/solar', labelKey: 'nav.solar', icon: 'wb_sunny', badge: 'Éco', badgeColor: 'nature' },
           { path: '/citoyen/tips', labelKey: 'nav.tips', icon: 'tips_and_updates' }
@@ -327,10 +329,12 @@ export class SidebarComponent {
 
       case 'OPERATEUR':
         return [
-          { path: '/operateur/dashboard', labelKey: 'nav.dashboard', icon: 'map', badge: '3D', badgeColor: 'sky' },
-          { path: '/operateur/load-forecast', labelKey: 'nav.forecast', icon: 'query_stats' },
+          { path: '/operateur/dashboard', labelKey: 'nav.dashboard', icon: 'monitoring', badge: '3D', badgeColor: 'sky' },
+          { path: '/operateur/load-forecast', labelKey: 'nav.forecast', icon: 'query_stats', badge: 'J+1 / J+7', badgeColor: 'sun' },
+          { path: '/operateur/outages', labelKey: 'nav.grid_management', icon: 'map', badge: 'Affectations', badgeColor: 'coral' },
+          { path: '/operateur/maintenance', labelKey: 'nav.maintenance', icon: 'build_circle', badge: 'Risques HT', badgeColor: 'sun' },
+          { path: '/operateur/scheduler', labelKey: 'nav.scheduler', icon: 'schedule', badge: 'Auto', badgeColor: 'nature' },
           { path: '/operateur/fraud', labelKey: 'nav.fraud', icon: 'policy', badge: '50 SHAP', badgeColor: 'coral' },
-          { path: '/operateur/outages', labelKey: 'nav.grid_management', icon: 'electrical_services', badge: '30 Pannes', badgeColor: 'sun' },
           { path: '/operateur/stats', labelKey: 'nav.stats', icon: 'download' }
         ];
 
@@ -345,6 +349,7 @@ export class SidebarComponent {
           { path: '/admin/users', labelKey: 'nav.users', icon: 'group' },
           { path: '/admin/thresholds', labelKey: 'nav.thresholds', icon: 'tune' },
           { path: '/admin/ml-models', labelKey: 'nav.ml_models', icon: 'model_training', badge: 'v2.4', badgeColor: 'nature' },
+          { path: '/admin/data', labelKey: 'nav.data', icon: 'upload_file', badge: 'CSV', badgeColor: 'sky' },
           { path: '/admin/audit', labelKey: 'nav.audit', icon: 'history' },
           { path: '/admin/demo-generator', labelKey: 'nav.demo_generator', icon: 'auto_fix_high', badge: '1-Clic', badgeColor: 'sun' }
         ];
