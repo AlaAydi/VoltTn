@@ -1,6 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, NavigationEnd } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { AdminService } from '../../../core/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -66,7 +69,7 @@ export interface ServiceHealth {
         <button 
           class="tab-link" 
           [class.active]="activeTab() === 'users'" 
-          (click)="activeTab.set('users')"
+          (click)="setTab('users')"
         >
           <span class="material-symbols-rounded">group</span>
           <span>Utilisateurs & Rôles ({{ adminService.users().length }})</span>
@@ -74,7 +77,7 @@ export interface ServiceHealth {
         <button 
           class="tab-link" 
           [class.active]="activeTab() === 'ml'" 
-          (click)="activeTab.set('ml')"
+          (click)="setTab('ml')"
         >
           <span class="material-symbols-rounded">model_training</span>
           <span>Modèles IA & Réentraînement</span>
@@ -82,7 +85,7 @@ export interface ServiceHealth {
         <button 
           class="tab-link" 
           [class.active]="activeTab() === 'regions'" 
-          (click)="activeTab.set('regions')"
+          (click)="setTab('regions')"
         >
           <span class="material-symbols-rounded">tune</span>
           <span>Régions & Seuils d'Alerte (24)</span>
@@ -90,7 +93,7 @@ export interface ServiceHealth {
         <button 
           class="tab-link" 
           [class.active]="activeTab() === 'data'" 
-          (click)="activeTab.set('data')"
+          (click)="setTab('data')"
         >
           <span class="material-symbols-rounded">upload_file</span>
           <span>Données & Imports CSV</span>
@@ -98,7 +101,7 @@ export interface ServiceHealth {
         <button 
           class="tab-link" 
           [class.active]="activeTab() === 'supervision'" 
-          (click)="activeTab.set('supervision')"
+          (click)="setTab('supervision')"
         >
           <span class="material-symbols-rounded">dns</span>
           <span>Supervision Services & Audit</span>
@@ -109,15 +112,63 @@ export interface ServiceHealth {
       @if (activeTab() === 'users') {
         <div class="tab-content glass-card">
           <div class="table-top-bar">
-            <div class="search-box">
-              <span class="material-symbols-rounded">search</span>
-              <input 
-                type="text" 
-                class="search-input" 
-                placeholder="Rechercher par nom, email ou gouvernorat..." 
-                [(ngModel)]="userSearch"
-              />
+            
+            <div class="top-bar-left">
+              <div class="search-box">
+                <span class="material-symbols-rounded search-icon">search</span>
+                <input 
+                  type="text" 
+                  class="search-input" 
+                  placeholder="Rechercher par nom, email ou gouvernorat..." 
+                  [(ngModel)]="userSearch"
+                />
+                @if (userSearch) {
+                  <button class="clear-search-btn" (click)="userSearch = ''">
+                    <span class="material-symbols-rounded">close</span>
+                  </button>
+                }
+              </div>
+
+              <!-- Filtres rapides par rôle -->
+              <div class="role-filter-chips">
+                <button 
+                  class="filter-chip" 
+                  [class.active]="roleFilter() === 'ALL'" 
+                  (click)="roleFilter.set('ALL')"
+                >
+                  Tous ({{ adminService.users().length }})
+                </button>
+                <button 
+                  class="filter-chip chip-citizen" 
+                  [class.active]="roleFilter() === 'CITOYEN'" 
+                  (click)="roleFilter.set('CITOYEN')"
+                >
+                  Citoyens
+                </button>
+                <button 
+                  class="filter-chip chip-op" 
+                  [class.active]="roleFilter() === 'OPERATEUR'" 
+                  (click)="roleFilter.set('OPERATEUR')"
+                >
+                  Opérateurs
+                </button>
+                <button 
+                  class="filter-chip chip-tech" 
+                  [class.active]="roleFilter() === 'TECHNICIEN'" 
+                  (click)="roleFilter.set('TECHNICIEN')"
+                >
+                  Techniciens
+                </button>
+                <button 
+                  class="filter-chip chip-admin" 
+                  [class.active]="roleFilter() === 'ADMIN'" 
+                  (click)="roleFilter.set('ADMIN')"
+                >
+                  Admins
+                </button>
+              </div>
             </div>
+
             <button class="btn-primary" (click)="openAddUserModal()">
               <span class="material-symbols-rounded">person_add</span>
               <span>Ajouter Utilisateur</span>
@@ -128,59 +179,86 @@ export interface ServiceHealth {
             <table class="volttn-table">
               <thead>
                 <tr>
-                  <th>Utilisateur</th>
-                  <th>Rôle Actuel</th>
-                  <th>Gouvernorat</th>
-                  <th>Compteur Associé</th>
-                  <th>Statut</th>
-                  <th>Actions</th>
+                  <th style="min-width: 250px;">Utilisateur</th>
+                  <th style="min-width: 190px;">Rôle Actuel</th>
+                  <th style="min-width: 150px;">Gouvernorat</th>
+                  <th style="min-width: 170px;">Compteur Associé</th>
+                  <th style="min-width: 130px;">Statut</th>
+                  <th style="min-width: 160px; text-align: right;">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 @for (u of filteredUsers(); track u.id) {
-                  <tr>
+                  <tr class="user-row">
                     <td>
                       <div class="user-cell">
-                        <img [src]="u.avatar" [alt]="u.name" class="table-avatar" />
-                        <div>
+                        <div class="avatar-ring">
+                          <img [src]="u.avatar" [alt]="u.name" class="table-avatar" />
+                          <span class="avatar-status-dot" [class.online]="u.status === 'ACTIF'"></span>
+                        </div>
+                        <div class="user-meta">
                           <div class="user-name">{{ u.name }}</div>
                           <div class="user-email">{{ u.email }}</div>
                         </div>
                       </div>
                     </td>
                     <td>
-                      <select 
-                        class="role-select" 
-                        [ngModel]="u.role" 
-                        (ngModelChange)="onRoleChange(u, $event)"
-                      >
-                        <option value="CITOYEN">Citoyen</option>
-                        <option value="OPERATEUR">Opérateur STEG</option>
-                        <option value="TECHNICIEN">Technicien</option>
-                        <option value="ADMIN">Administrateur</option>
-                      </select>
+                      <div class="role-select-box" [ngClass]="'role-theme-' + u.role.toLowerCase()">
+                        <select 
+                          class="custom-role-dropdown" 
+                          [ngModel]="u.role" 
+                          (ngModelChange)="onRoleChange(u, $event)"
+                        >
+                          <option value="CITOYEN">👤 Citoyen</option>
+                          <option value="OPERATEUR">⚡ Opérateur STEG</option>
+                          <option value="TECHNICIEN">🛠️ Technicien</option>
+                          <option value="ADMIN">🛡️ Administrateur</option>
+                        </select>
+                        <span class="material-symbols-rounded select-arrow">expand_more</span>
+                      </div>
                     </td>
-                    <td>{{ u.governorate }}</td>
                     <td>
-                      <span class="meter-tag">{{ u.meterNumber || 'Non associé' }}</span>
+                      <div class="gov-cell">
+                        <span class="material-symbols-rounded gov-icon">pin_drop</span>
+                        <span class="gov-text">{{ u.governorate }}</span>
+                      </div>
                     </td>
                     <td>
-                      <span class="glass-badge" [ngClass]="u.status === 'ACTIF' ? 'badge-nature' : 'badge-coral'">
-                        {{ u.status }}
-                      </span>
+                      @if (u.meterNumber) {
+                        <div class="meter-chip">
+                          <span class="material-symbols-rounded meter-icon">electric_meter</span>
+                          <span class="meter-val">{{ u.meterNumber }}</span>
+                        </div>
+                      } @else {
+                        <span class="meter-empty">
+                          <span class="material-symbols-rounded">link_off</span>
+                          <span>Non associé</span>
+                        </span>
+                      }
+                    </td>
+                    <td>
+                      <div class="status-badge" [class.badge-active]="u.status === 'ACTIF'" [class.badge-blocked]="u.status !== 'ACTIF'">
+                        <span class="status-radar"></span>
+                        <span class="status-label">{{ u.status === 'ACTIF' ? 'ACTIF' : 'BLOQUÉ' }}</span>
+                      </div>
                     </td>
                     <td>
                       <div class="action-btn-group">
                         <button 
-                          class="btn-status-toggle" 
+                          class="action-btn-toggle" 
                           [class.btn-block]="u.status === 'ACTIF'"
+                          [class.btn-unblock]="u.status !== 'ACTIF'"
                           (click)="adminService.toggleUserStatus(u.id)"
+                          [title]="u.status === 'ACTIF' ? 'Bloquer ce compte' : 'Débloquer ce compte'"
                         >
-                          {{ u.status === 'ACTIF' ? 'Bloquer' : 'Débloquer' }}
+                          <span class="material-symbols-rounded btn-icon">
+                            {{ u.status === 'ACTIF' ? 'lock' : 'lock_open' }}
+                          </span>
+                          <span>{{ u.status === 'ACTIF' ? 'Bloquer' : 'Débloquer' }}</span>
                         </button>
                         <button 
-                          class="btn-delete-user" 
-                          title="Supprimer ce compte"
+                          class="action-btn-delete" 
+                          title="Supprimer définitivement ce compte"
                           (click)="adminService.deleteUser(u.id)"
                         >
                           <span class="material-symbols-rounded">delete</span>
@@ -214,33 +292,34 @@ export interface ServiceHealth {
               <p class="model-desc">{{ model.description }}</p>
 
               <div class="metrics-comparison">
-                <div class="m-metric">
+                <div class="metric-box">
+                  <span class="val highlight">{{ model.mapePercent }}%</span>
+                  <span class="lbl">MAPE (Erreur)</span>
+                </div>
+                <div class="metric-box">
                   <span class="val">{{ model.maeMw }} MW</span>
                   <span class="lbl">MAE</span>
                 </div>
-                <div class="m-metric">
+                <div class="metric-box">
                   <span class="val">{{ model.rmseMw }} MW</span>
                   <span class="lbl">RMSE</span>
                 </div>
-                <div class="m-metric">
-                  <span class="val highlight">{{ model.mapePercent }}%</span>
-                  <span class="lbl">MAPE</span>
-                </div>
-                <div class="m-metric">
+                <div class="metric-box">
                   <span class="val">{{ model.featuresCount }}</span>
-                  <span class="lbl">Variables</span>
+                  <span class="lbl">Variables IA</span>
                 </div>
               </div>
 
               <div class="model-footer">
-                <span class="train-date">Entraîné : {{ model.trainedAt }}</span>
+                <span class="train-date">Dernier entraînement : {{ model.trainedAt }}</span>
                 <div class="model-btn-row">
                   @if (model.status !== 'ACTIF') {
-                    <button class="btn-secondary" (click)="adminService.activateModel(model.id)">
-                      Activer en Prod
+                    <button class="btn-primary" (click)="adminService.activateModel(model.id)">
+                      <span class="material-symbols-rounded">check_circle</span>
+                      <span>Activer</span>
                     </button>
                   }
-                  <button class="btn-primary" (click)="triggerRetraining(model.id)">
+                  <button class="btn-sky" (click)="triggerRetraining(model.id)">
                     <span class="material-symbols-rounded">autorenew</span>
                     <span>Réentraîner</span>
                   </button>
@@ -251,14 +330,15 @@ export interface ServiceHealth {
         </div>
       }
 
-      <!-- ================= ONGLET 3 : RÉGIONS & SEUILS D'ALERTE (24 GOUVERNORATS) ================= -->
+      <!-- ================= ONGLET 3 : RÉGIONS & SEUILS (24 GOUVERNORATS) ================= -->
       @if (activeTab() === 'regions') {
         <div class="tab-content glass-card">
-          <div class="thresholds-header">
+          <div class="section-title-row">
             <div>
-              <h2 class="card-title">Paramétrage des Capacités & Seuils des 24 Gouvernorats</h2>
-              <p class="card-sub">Définition des capacités en MW, des seuils de déclenchement d'alertes SCADA et des tarifs</p>
+              <h2 class="card-title">Paramétrage des Seuils de Surcharge Réseau</h2>
+              <p class="card-subtitle">Ajustez la capacité maximale en MW et le seuil d'alerte pour chaque gouvernorat tunisien.</p>
             </div>
+            <span class="glass-badge badge-sun">24 Gouvernorats STEG Actifs</span>
           </div>
 
           <div class="thresholds-grid">
@@ -266,24 +346,29 @@ export interface ServiceHealth {
               <div class="threshold-card glass-panel">
                 <div class="th-name-row">
                   <div>
-                    <strong class="th-name">{{ gov.name }}</strong>
+                    <span class="th-name">{{ gov.name }}</span>
                     <span class="th-sub">({{ gov.nameAr }})</span>
                   </div>
-                  <span class="th-val">{{ adminService.thresholds()[gov.id] || gov.capacityMw }} MW</span>
+                  <strong class="th-val">{{ gov.capacityMw }} MW</strong>
                 </div>
-                <input 
-                  type="range" 
-                  class="range-slider" 
-                  [min]="gov.capacityMw * 0.5" 
-                  [max]="gov.capacityMw * 1.2" 
-                  [ngModel]="adminService.thresholds()[gov.id] || gov.capacityMw"
-                  (ngModelChange)="onThresholdChange(gov.id, $event)"
-                />
+
                 <div class="th-info">
-                  <span>Capacité nominale : {{ gov.capacityMw }} MW</span>
-                  <span class="th-pct">
-                    Seuil alerte : {{ Math.round(((adminService.thresholds()[gov.id] || gov.capacityMw) / gov.capacityMw) * 100) }}%
+                  <span>Charge actuelle : <strong>{{ gov.currentLoadMw }} MW</strong></span>
+                  <span class="glass-badge" [ngClass]="gov.status === 'SURCHARGE' ? 'badge-coral' : (gov.status === 'ELEVEE' ? 'badge-sun' : 'badge-nature')">
+                    {{ Math.round((gov.currentLoadMw / gov.capacityMw) * 100) }}%
                   </span>
+                </div>
+
+                <div class="slider-row">
+                  <input 
+                    type="range" 
+                    min="100" 
+                    max="1200" 
+                    step="20"
+                    [value]="gov.capacityMw" 
+                    (input)="onThresholdChange(gov.id, +$any($event.target).value)" 
+                    class="range-slider"
+                  />
                 </div>
               </div>
             }
@@ -295,42 +380,39 @@ export interface ServiceHealth {
       @if (activeTab() === 'data') {
         <div class="tab-content data-mgmt-layout">
           
-          <!-- Carte Import Fichier CSV -->
-          <div class="import-card glass-card">
-            <h3 class="card-title">Importer l'Historique de Consommation (CSV / Excel)</h3>
-            <p class="card-sub">Téléchargez les relevés télétransmis des 100 000 compteurs basse tension</p>
+          <div class="data-box glass-card">
+            <h2 class="card-title">Importation des Données SCADA & Météo</h2>
+            <p class="card-subtitle">Téléversez des fichiers CSV ou Excel contenant les séries de télémesures STEG pour le réentraînement des modèles.</p>
 
             <div class="drop-zone" (click)="simulateFileSelect()">
               <span class="material-symbols-rounded drop-icon">cloud_upload</span>
-              <strong class="drop-text">{{ selectedFileName() || 'Glissez-déposez votre fichier CSV ici ou cliquez pour parcourir' }}</strong>
-              <span class="drop-sub">Format attendu : meter_id, timestamp, kwh, voltage_v, power_factor</span>
+              <span class="drop-text">Glissez-déposez votre fichier de télémesure (.csv, .xlsx)</span>
+              <span class="drop-sub">Format accepté : Horodatage, Code_Poste, Puissance_MW, Tension_kV, Température_C</span>
             </div>
 
             @if (selectedFileName()) {
-              <div class="csv-preview-box glass-panel animate-float">
+              <div class="csv-preview-box glass-panel">
                 <div class="preview-header">
-                  <span class="preview-badge">Prévisualisation (5 premières lignes) :</span>
-                  <span class="line-count">14 820 lignes détectées</span>
+                  <span>Fichier sélectionné : <strong>{{ selectedFileName() }}</strong></span>
+                  <span class="glass-badge badge-nature">Format Valide</span>
                 </div>
-                <pre class="csv-code">
-MTR-TN-882419, 2025-10-19 08:00, 1.45, 228.4, 0.94
-MTR-TN-882419, 2025-10-19 08:15, 1.62, 229.1, 0.95
-MTR-SF-778811, 2025-10-19 08:00, 3.12, 226.5, 0.92
-MTR-SO-441200, 2025-10-19 08:00, 0.88, 230.2, 0.96
-MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
-                
+                <div class="csv-code">
+                  timestamp,post_code,load_mw,temp_c<br>
+                  2025-10-18 12:00,RADES_225,482.4,28.4<br>
+                  2025-10-18 13:00,GHANNOUCH,340.1,31.2<br>
+                  2025-10-18 14:00,MORNAGUIA,295.8,29.8
+                </div>
                 <button class="btn-primary" (click)="confirmImport()">
-                  <span class="material-symbols-rounded">file_download_done</span>
-                  <span>Ingérer les Données dans le Data Warehouse STEG</span>
+                  <span class="material-symbols-rounded">publish</span>
+                  <span>Intégrer dans la Base STEG</span>
                 </button>
               </div>
             }
           </div>
 
-          <!-- Jours Fériés Tunisiens & Calendrier -->
-          <div class="holidays-card glass-card">
-            <h3 class="card-title">Calendrier des Jours Fériés en Tunisie</h3>
-            <p class="card-sub">Prise en compte dans le modèle IA pour la baisse de charge industrielle (-350 MW)</p>
+          <div class="holidays-box glass-card">
+            <h2 class="card-title">Calendrier des Jours Fériés Tunisiens</h2>
+            <p class="card-subtitle">Facteurs d'ajustement du profil de consommation industrielle pour l'algorithme LightGBM.</p>
 
             <div class="holidays-list">
               @for (h of tunisianHolidays; track h.name) {
@@ -341,55 +423,108 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
                   </div>
                   <div class="h-info">
                     <strong class="h-name">{{ h.name }}</strong>
-                    <span class="h-impact">Impact estimé : {{ h.impactMw }} MW</span>
+                    <span class="h-impact">Impact moyen sur la charge : <strong class="text-coral">{{ h.impactMw }} MW</strong></span>
                   </div>
-                  <span class="glass-badge badge-sky">Férié Chômé</span>
+                  <span class="glass-badge badge-sun">Modélisé</span>
                 </div>
               }
+            </div>
+          </div>
+
+          <!-- Centre d'Exportation Multi-Formats (CSV, JSON, PDF, Excel) [NOUVEAU] -->
+          <div class="export-box glass-card">
+            <div class="section-title-row">
+              <div>
+                <h2 class="card-title">Centre d'Exportation Multi-Formats des Données STEG</h2>
+                <p class="card-subtitle">Exportez l'intégralité des configurations réseau, profils utilisateurs, seuils et modèles ML sous le format de votre choix.</p>
+              </div>
+              <span class="glass-badge badge-sky">Conforme STEG & ANME</span>
+            </div>
+
+            <div class="export-buttons-grid">
+              <button class="export-card-btn glass-panel" (click)="exportData('CSV')">
+                <div class="exp-icon-box csv">
+                  <span class="material-symbols-rounded">csv</span>
+                </div>
+                <div class="exp-info">
+                  <strong>Export CSV (.csv)</strong>
+                  <span>Données brutes de télémesure SCADA</span>
+                </div>
+                <span class="material-symbols-rounded exp-arrow">download</span>
+              </button>
+
+              <button class="export-card-btn glass-panel" (click)="exportData('EXCEL')">
+                <div class="exp-icon-box excel">
+                  <span class="material-symbols-rounded">table_view</span>
+                </div>
+                <div class="exp-info">
+                  <strong>Export Excel (.xlsx)</strong>
+                  <span>Tableur consolidé des 24 gouvernorats</span>
+                </div>
+                <span class="material-symbols-rounded exp-arrow">download</span>
+              </button>
+
+              <button class="export-card-btn glass-panel" (click)="exportData('JSON')">
+                <div class="exp-icon-box json">
+                  <span class="material-symbols-rounded">data_object</span>
+                </div>
+                <div class="exp-info">
+                  <strong>Export JSON (.json)</strong>
+                  <span>Snapshot API complet du système</span>
+                </div>
+                <span class="material-symbols-rounded exp-arrow">download</span>
+              </button>
+
+              <button class="export-card-btn glass-panel" (click)="exportData('PDF')">
+                <div class="exp-icon-box pdf">
+                  <span class="material-symbols-rounded">picture_as_pdf</span>
+                </div>
+                <div class="exp-info">
+                  <strong>Export PDF (.pdf)</strong>
+                  <span>Rapport d'audit exécutif mensuel</span>
+                </div>
+                <span class="material-symbols-rounded exp-arrow">download</span>
+              </button>
             </div>
           </div>
 
         </div>
       }
 
-      <!-- ================= ONGLET 5 : SUPERVISION SERVICES & AUDIT ================= -->
+      <!-- ================= ONGLET 5 : SUPERVISION & AUDIT ================= -->
       @if (activeTab() === 'supervision') {
         <div class="tab-content supervision-layout">
           
-          <!-- État des Microservices -->
-          <div class="services-health-card glass-card">
-            <div class="table-top-bar">
-              <h3 class="card-title">État Opérationnel des Microservices VoltTN</h3>
-              <span class="glass-badge badge-nature">Tous les Services Opérationnels</span>
-            </div>
+          <div class="services-box glass-card">
+            <h2 class="card-title">État des Microservices VoltTN</h2>
+            <p class="card-subtitle">Surveillance télémétrique et disponibilité des serveurs de prédiction et d'ingestion.</p>
 
             <div class="services-grid">
-              @for (s of microservices(); track s.name) {
+              @for (srv of microservices(); track srv.name) {
                 <div class="service-item glass-panel">
                   <div class="s-top">
-                    <div class="s-dot" [class.online]="s.status === 'ONLINE'"></div>
-                    <strong>{{ s.name }}</strong>
+                    <span class="s-dot"></span>
+                    <strong>{{ srv.name }}</strong>
                   </div>
-                  <div class="s-cat">{{ s.category }}</div>
+                  <span class="s-cat">{{ srv.category }}</span>
                   <div class="s-metrics">
-                    <span>Latence : <strong>{{ s.latencyMs }} ms</strong></span>
-                    <span>Disponibilité : <strong class="text-nature">{{ s.uptimePct }}%</strong></span>
+                    <span>Disponibilité : <strong>{{ srv.uptimePct }}%</strong></span>
+                    <span>Latence : <strong>{{ srv.latencyMs }} ms</strong></span>
                   </div>
                 </div>
               }
             </div>
           </div>
 
-          <!-- Journal d'Audit & Export -->
-          <div class="audit-card-wrapper glass-card">
-            <div class="table-top-bar">
+          <div class="audit-box glass-card">
+            <div class="section-title-row">
               <div>
-                <h3 class="card-title">Journal d'Audit en Temps Réel</h3>
-                <span class="card-sub">{{ adminService.auditLogs().length }} événements répertoriés</span>
+                <h2 class="card-title">Journal d'Audit & Sécurité</h2>
+                <p class="card-subtitle">Traçabilité complète des actions effectuées par les opérateurs et administrateurs.</p>
               </div>
               <button class="btn-secondary" (click)="exportAuditLogs()">
-                <span class="material-symbols-rounded">file_download</span>
-                <span>Exporter Audit (CSV)</span>
+                <span class="material-symbols-rounded">download</span>
+                <span>Exporter CSV</span>
               </button>
             </div>
 
@@ -399,14 +534,12 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
                   <div class="audit-dot"></div>
                   <div class="audit-card glass-panel">
                     <div class="audit-top">
-                      <div>
-                        <strong class="action-name">{{ log.action }}</strong>
-                        <span class="target-name"> • {{ log.target }}</span>
-                      </div>
+                      <strong class="action-name">{{ log.action }}</strong>
+                      <span class="target-name">{{ log.target }}</span>
                       <span class="log-time">{{ log.timestamp }}</span>
                     </div>
                     <div class="audit-meta">
-                      Par : <strong>{{ log.userEmail }}</strong> ({{ log.userRole }})
+                      <span>Utilisateur : <strong>{{ log.userEmail }}</strong> ({{ log.userRole }})</span>
                     </div>
                     <p class="audit-details">{{ log.details }}</p>
                   </div>
@@ -424,16 +557,16 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
     .admin-page {
       display: flex;
       flex-direction: column;
-      gap: 22px;
+      gap: 24px;
       padding-bottom: 50px;
     }
 
     .admin-header {
+      padding: 26px 30px;
+      border-radius: var(--radius-xl);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 24px 30px;
-      border-radius: var(--radius-xl);
       gap: 20px;
       flex-wrap: wrap;
     }
@@ -441,7 +574,7 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
     .badge-row {
       display: flex;
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       flex-wrap: wrap;
     }
 
@@ -459,19 +592,20 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
     }
 
     .demo-generator-box {
-      padding: 16px 20px;
-      border-radius: var(--radius-lg);
-      background: rgba(255, 255, 255, 0.95);
-      border: 1.5px dashed var(--sun-gold);
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 12px 16px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(251, 133, 0, 0.2);
+      box-shadow: var(--shadow-sm);
     }
 
     .gen-title {
       font-size: 11.5px;
       font-weight: 800;
-      color: #A35C00;
+      color: var(--sun-amber);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -480,9 +614,9 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      button { font-size: 12px; padding: 7px 12px; }
     }
 
-    /* Tabs */
     .tabs-nav {
       display: flex;
       gap: 8px;
@@ -521,98 +655,385 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
       border-radius: var(--radius-xl);
     }
 
-    /* Users Table */
+    /* Users Table Premium Top Bar */
     .table-top-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 22px;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 16px;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      flex: 1;
     }
 
     .search-box {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
+      gap: 10px;
+      padding: 9px 18px;
       border-radius: var(--radius-full);
+      background: #FFFFFF;
+      border: 1.5px solid rgba(29, 53, 87, 0.12);
+      width: 310px;
+      max-width: 100%;
+      box-shadow: 0 2px 10px rgba(29, 53, 87, 0.04);
+      transition: all var(--transition-fast);
+
+      &:focus-within {
+        border-color: var(--sun-amber);
+        box-shadow: 0 0 0 3px rgba(251, 133, 0, 0.15);
+      }
+
+      .search-icon {
+        font-size: 20px;
+        color: var(--text-muted);
+      }
+
+      .search-input {
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 13.5px;
+        width: 100%;
+        color: var(--text-main);
+      }
+
+      .clear-search-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        color: var(--text-light);
+        padding: 0;
+        &:hover { color: var(--text-main); }
+        .material-symbols-rounded { font-size: 16px; }
+      }
+    }
+
+    /* Role filter chips */
+    .role-filter-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 700;
       background: rgba(255, 255, 255, 0.9);
       border: 1.5px solid rgba(29, 53, 87, 0.1);
-      width: 320px;
-      max-width: 100%;
-      .search-input { border: none; outline: none; background: transparent; font-size: 13.5px; width: 100%; }
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+
+      &:hover {
+        border-color: var(--sun-amber);
+        color: var(--text-main);
+      }
+
+      &.active {
+        background: var(--text-main);
+        color: #FFFFFF;
+        border-color: var(--text-main);
+        box-shadow: 0 2px 8px rgba(29, 53, 87, 0.2);
+      }
+
+      &.chip-citizen.active { background: #2D6A4F; border-color: #2D6A4F; }
+      &.chip-op.active { background: #0E6BA8; border-color: #0E6BA8; }
+      &.chip-tech.active { background: #D97706; border-color: #D97706; }
+      &.chip-admin.active { background: #5B21B6; border-color: #5B21B6; }
+    }
+
+    /* User Row Styling */
+    .user-row {
+      td {
+        padding: 16px 20px;
+      }
     }
 
     .user-cell {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
+    }
+
+    .avatar-ring {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
     }
 
     .table-avatar {
-      width: 38px;
-      height: 38px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       object-fit: cover;
+      box-shadow: 0 2px 8px rgba(29, 53, 87, 0.12);
+      border: 2px solid #FFFFFF;
     }
 
-    .user-name { font-weight: 800; color: var(--text-main); font-size: 13.5px; }
-    .user-email { font-size: 11.5px; color: var(--text-light); }
+    .avatar-status-dot {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--alert-coral);
+      border: 2px solid #FFFFFF;
 
-    .role-select {
-      padding: 4px 10px;
-      border-radius: var(--radius-sm);
-      border: 1px solid rgba(29, 53, 87, 0.15);
-      background: rgba(255, 255, 255, 0.9);
-      font-size: 12px;
-      font-weight: 700;
-      outline: none;
-    }
-
-    .meter-tag {
-      font-size: 11.5px;
-      font-family: monospace;
-      background: rgba(29, 53, 87, 0.06);
-      padding: 3px 8px;
-      border-radius: var(--radius-sm);
-    }
-
-    .action-btn-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-status-toggle {
-      padding: 4px 12px;
-      border-radius: var(--radius-full);
-      border: 1px solid var(--nature-green);
-      background: var(--nature-light);
-      color: var(--nature-green);
-      font-size: 11.5px;
-      font-weight: 800;
-      cursor: pointer;
-      &.btn-block {
-        border-color: var(--alert-coral);
-        background: var(--alert-coral-light);
-        color: var(--alert-coral);
+      &.online {
+        background: var(--nature-green);
+        box-shadow: 0 0 6px rgba(82, 183, 136, 0.8);
       }
     }
 
-    .btn-delete-user {
-      width: 30px;
-      height: 30px;
+    .user-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .user-name {
+      font-weight: 800;
+      color: var(--text-main);
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .user-email {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Role Dropdown Select */
+    .role-select-box {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: 175px;
+    }
+
+    .custom-role-dropdown {
+      width: 100%;
+      appearance: none;
+      -webkit-appearance: none;
+      padding: 7px 32px 7px 12px;
+      border-radius: var(--radius-full);
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      outline: none;
+      transition: all var(--transition-fast);
+      background: #FFFFFF;
+      border: 1.5px solid rgba(29, 53, 87, 0.15);
+      color: var(--text-main);
+
+      &:hover {
+        border-color: var(--sun-amber);
+      }
+
+      &:focus {
+        border-color: var(--sun-amber);
+        box-shadow: 0 0 0 3px rgba(251, 133, 0, 0.15);
+      }
+    }
+
+    .role-select-box.role-theme-citoyen .custom-role-dropdown {
+      border-color: rgba(82, 183, 136, 0.4);
+      background: rgba(234, 247, 240, 0.7);
+    }
+    .role-select-box.role-theme-operateur .custom-role-dropdown {
+      border-color: rgba(42, 157, 244, 0.4);
+      background: rgba(228, 247, 253, 0.7);
+    }
+    .role-select-box.role-theme-technicien .custom-role-dropdown {
+      border-color: rgba(251, 133, 0, 0.4);
+      background: rgba(255, 240, 194, 0.7);
+    }
+    .role-select-box.role-theme-admin .custom-role-dropdown {
+      border-color: rgba(147, 51, 234, 0.4);
+      background: rgba(243, 232, 255, 0.7);
+    }
+
+    .select-arrow {
+      position: absolute;
+      right: 10px;
+      font-size: 18px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Governorate Cell */
+    .gov-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-main);
+      font-weight: 700;
+      font-size: 13.5px;
+
+      .gov-icon {
+        font-size: 18px;
+        color: var(--sun-amber);
+      }
+    }
+
+    /* Meter Chip */
+    .meter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(29, 53, 87, 0.06);
+      border: 1px solid rgba(29, 53, 87, 0.1);
+      color: var(--text-main);
+
+      .meter-icon {
+        font-size: 16px;
+        color: var(--sky-ocean);
+      }
+
+      .meter-val {
+        font-family: monospace;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    .meter-empty {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text-light);
+      font-style: italic;
+
+      .material-symbols-rounded { font-size: 15px; }
+    }
+
+    /* Modern Status Badge with Radar Pulse */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+
+      &.badge-active {
+        background: rgba(82, 183, 136, 0.12);
+        color: #2D6A4F;
+        border: 1px solid rgba(82, 183, 136, 0.3);
+
+        .status-radar {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #2D6A4F;
+          box-shadow: 0 0 6px #2D6A4F;
+        }
+      }
+
+      &.badge-blocked {
+        background: rgba(255, 107, 107, 0.12);
+        color: #B91C1C;
+        border: 1px solid rgba(255, 107, 107, 0.3);
+
+        .status-radar {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #B91C1C;
+        }
+      }
+    }
+
+    /* Action Buttons Group */
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .action-btn-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+
+      .btn-icon { font-size: 15px; }
+
+      &.btn-block {
+        border: 1.5px solid rgba(255, 107, 107, 0.4);
+        background: rgba(255, 107, 107, 0.08);
+        color: #D90429;
+
+        &:hover {
+          background: #D90429;
+          color: #FFFFFF;
+          border-color: #D90429;
+          transform: translateY(-1px);
+        }
+      }
+
+      &.btn-unblock {
+        border: 1.5px solid rgba(82, 183, 136, 0.4);
+        background: rgba(82, 183, 136, 0.1);
+        color: #2D6A4F;
+
+        &:hover {
+          background: #2D6A4F;
+          color: #FFFFFF;
+          border-color: #2D6A4F;
+          transform: translateY(-1px);
+        }
+      }
+    }
+
+    .action-btn-delete {
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: rgba(255, 107, 107, 0.1);
-      border: 1px solid rgba(255, 107, 107, 0.3);
-      color: var(--alert-coral);
+      background: rgba(255, 107, 107, 0.08);
+      border: 1.5px solid rgba(255, 107, 107, 0.25);
+      color: #D90429;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      .material-symbols-rounded { font-size: 16px; }
-      &:hover { background: var(--alert-coral); color: #FFFFFF; }
+      transition: all var(--transition-fast);
+
+      .material-symbols-rounded { font-size: 18px; }
+
+      &:hover {
+        background: #D90429;
+        color: #FFFFFF;
+        border-color: #D90429;
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(217, 4, 41, 0.3);
+      }
     }
 
     /* ML Models */
@@ -831,28 +1252,133 @@ MTR-BI-991122, 2025-10-19 08:00, 2.05, 227.8, 0.93</pre>
     .audit-top { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 2px; }
     .action-name { color: var(--text-main); }
     .target-name { color: var(--sun-amber); font-weight: 700; }
-    .log-time { font-size: 10.5px; color: var(--text-light); }
-    .audit-meta { font-size: 11px; color: var(--text-light); margin-bottom: 4px; }
-    .audit-details { font-size: 12px; color: var(--text-muted); }
+    /* Export Multi-Formats Box */
+    .export-box {
+      margin-top: 14px;
+      padding: 24px;
+      border-radius: var(--radius-xl);
+    }
+
+    .export-buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .export-card-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(29, 53, 87, 0.1);
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.25s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--sky-blue);
+        .exp-arrow { color: var(--sky-blue); transform: translateY(2px); }
+      }
+    }
+
+    .exp-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      &.csv { background: rgba(14, 107, 168, 0.12); color: var(--sky-blue); }
+      &.excel { background: rgba(82, 183, 136, 0.15); color: var(--nature-green); }
+      &.json { background: rgba(245, 158, 11, 0.15); color: var(--sun-amber); }
+      &.pdf { background: rgba(239, 71, 111, 0.15); color: var(--alert-coral); }
+    }
+
+    .exp-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      strong { font-size: 13.5px; color: var(--text-main); }
+      span { font-size: 11px; color: var(--text-light); }
+    }
+
+    .exp-arrow {
+      color: var(--text-light);
+      font-size: 20px;
+      transition: all 0.2s;
+    }
 
     @media (max-width: 1024px) {
       .data-mgmt-layout, .supervision-layout { grid-template-columns: 1fr; }
     }
   `]
 })
-export class AdminDashboardComponent {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
   adminService = inject(AdminService);
   authService = inject(AuthService);
   eleService = inject(ElectricityService);
   notifService = inject(NotificationService);
   schedulerService = inject(SystemSchedulerService);
+  router = inject(Router);
 
   activeTab = signal<'users' | 'ml' | 'regions' | 'data' | 'supervision'>('users');
+  roleFilter = signal<string>('ALL');
   userSearch = '';
   Math = Math;
   activeUsersCount = 1428;
 
   selectedFileName = signal<string | null>(null);
+  private navSub?: Subscription;
+
+  ngOnInit(): void {
+    this.syncTabFromUrl();
+    this.navSub = this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.syncTabFromUrl();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.navSub?.unsubscribe();
+  }
+
+  syncTabFromUrl(): void {
+    const url = this.router.url;
+    if (url.includes('/admin/thresholds')) {
+      this.activeTab.set('regions');
+    } else if (url.includes('/admin/ml-models')) {
+      this.activeTab.set('ml');
+    } else if (url.includes('/admin/data') || url.includes('/admin/demo-generator')) {
+      this.activeTab.set('data');
+    } else if (url.includes('/admin/audit') || url.includes('/admin/supervision')) {
+      this.activeTab.set('supervision');
+    } else {
+      this.activeTab.set('users');
+    }
+  }
+
+  setTab(tab: 'users' | 'ml' | 'regions' | 'data' | 'supervision'): void {
+    this.activeTab.set(tab);
+    const routeMap: Record<string, string> = {
+      users: '/admin/users',
+      ml: '/admin/ml-models',
+      regions: '/admin/thresholds',
+      data: '/admin/data',
+      supervision: '/admin/audit'
+    };
+    if (routeMap[tab]) {
+      this.router.navigateByUrl(routeMap[tab]);
+    }
+  }
 
   tunisianHolidays = [
     { date: '20 Mar', name: 'Fête de l\'Indépendance', impactMw: -350 },
@@ -872,7 +1398,13 @@ export class AdminDashboardComponent {
 
   filteredUsers(): User[] {
     const q = this.userSearch.trim().toLowerCase();
-    const list = this.adminService.users();
+    const role = this.roleFilter();
+    let list = this.adminService.users();
+
+    if (role !== 'ALL') {
+      list = list.filter(u => u.role === role);
+    }
+
     if (!q) return list;
     return list.filter(u =>
       u.name.toLowerCase().includes(q) ||
@@ -935,5 +1467,77 @@ export class AdminDashboardComponent {
     link.click();
     document.body.removeChild(link);
     this.notifService.showToast('Audit Téléchargé', 'Fichier CSV du journal d\'audit prêt.', 'SUCCESS');
+  }
+
+  exportData(format: 'CSV' | 'EXCEL' | 'JSON' | 'PDF'): void {
+    const dateStr = new Date().toISOString().split('T')[0];
+    const govs = this.eleService.governorates();
+    const users = this.adminService.users();
+
+    if (format === 'CSV' || format === 'EXCEL') {
+      const header = 'Gouvernorat,Nom_Arabe,Capacite_MW,Charge_Actuelle_MW,Temperature_C,Statut\n';
+      const rows = govs.map(g => `${g.name},${g.nameAr},${g.capacityMw},${g.currentLoadMw},${g.temperatureC},${g.status}`).join('\n');
+      const blob = new Blob([header + rows], { type: format === 'EXCEL' ? 'application/vnd.ms-excel;charset=utf-8' : 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Donnees_Reseau_STEG_${dateStr}.${format === 'EXCEL' ? 'xlsx' : 'csv'}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      this.notifService.showToast(`Export ${format} Réussi`, `Fichier ${format} généré et téléchargé.`, 'SUCCESS');
+    } else if (format === 'JSON') {
+      const exportPayload = {
+        meta: { app: 'VoltTN', version: '2.4.0', exportedAt: new Date().toISOString() },
+        governorates: govs,
+        usersCount: users.length,
+        models: this.adminService.models()
+      };
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `VoltTN_Snapshot_${dateStr}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      this.notifService.showToast('Export JSON Réussi', 'Snapshot JSON exporté.', 'SUCCESS');
+    } else if (format === 'PDF') {
+      const reportContent = `
+========================================================================
+             RAPPORT EXÉCUTIF MENSUEL DU RÉSEAU ÉLECTRIQUE STEG
+             Direction Générale de la Distribution et du Transport
+========================================================================
+Date d'édition    : ${dateStr}
+Plateforme        : VoltTN Supervision Intelligente
+Utilisateurs      : ${users.length} comptes enregistrés
+
+1. SYNTHÈSE NATIONALE DU RÉSEAU
+------------------------------------------------------------------------
+Capacité Totale Installée : ${this.eleService.totalCapacityMw().toLocaleString()} MW
+Charge Nationale Actuelle : ${this.eleService.totalCurrentLoadMw().toLocaleString()} MW
+Marge de Réserve          : ${this.eleService.reserveMarginPct()}%
+Injection Solaire & Éolien : ${this.eleService.nationalSolarMw()} MW (${this.eleService.solarSharePct()}% du mix)
+
+2. SITUATION DES 24 GOUVERNORATS
+------------------------------------------------------------------------
+${govs.map(g => `• ${g.name.padEnd(14)} : ${g.currentLoadMw.toString().padStart(4)} / ${g.capacityMw.toString().padStart(4)} MW (${Math.round((g.currentLoadMw / g.capacityMw) * 100)}%) [${g.status}]`).join('\n')}
+
+3. MODÈLES D'INTELLIGENCE ARTIFICIELLE
+------------------------------------------------------------------------
+• LightGBM v2.4 (Prévision de charge) : MAE 18.4 MW • MAPE 2.10% (EN PRODUCTION)
+• XGBoost SHAP (Détection de fraude) : Précision 94.2% • ROC-AUC 0.96
+• Tesseract OCR (Reconnaissance index) : Précision 98.7%
+• DistilBERT NLP (Avis de coupures)   : F1-Score 93.4%
+
+Signé : Direction de la Planification Énergétique STEG
+`;
+      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Rapport_Executif_STEG_${dateStr}.txt`;
+      link.click();
+      URL.revokeObjectURL(url);
+      this.notifService.showToast('Rapport PDF/Texte Téléchargé', 'Rapport exécutif STEG généré.', 'SUCCESS');
+    }
   }
 }
