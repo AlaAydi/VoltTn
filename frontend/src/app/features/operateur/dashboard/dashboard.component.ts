@@ -12,6 +12,7 @@ import { SystemSchedulerService } from '../../../core/services/system-scheduler.
 import { TunisiaMap3dComponent } from '../../../shared/components/tunisia-map-3d/tunisia-map-3d.component';
 import { TunisiaLeafletMapComponent } from '../../../shared/components/tunisia-leaflet-map/tunisia-leaflet-map.component';
 import { Tilt3dDirective } from '../../../shared/directives/tilt-3d.directive';
+import { EnergySankeyComponent } from '../../../shared/components/energy-sankey/energy-sankey.component';
 import { Governorate } from '../../../models/governorate.model';
 import { OutageReport } from '../../../models/outage.model';
 
@@ -35,7 +36,8 @@ export interface EquipmentRisk {
     RouterModule, 
     TunisiaMap3dComponent, 
     TunisiaLeafletMapComponent, 
-    Tilt3dDirective
+    Tilt3dDirective,
+    EnergySankeyComponent
   ],
   template: `
     <div class="operator-dashboard">
@@ -109,6 +111,14 @@ export interface EquipmentRisk {
         >
           <span class="material-symbols-rounded">schedule</span>
           <span>Planificateur Système Automate</span>
+        </button>
+        <button 
+          class="tab-btn" 
+          [class.active]="activeTab() === 'sankey'" 
+          (click)="setTab('sankey')"
+        >
+          <span class="material-symbols-rounded">account_tree</span>
+          <span>Flux Réseau Sankey (ECharts)</span>
         </button>
       </div>
 
@@ -799,6 +809,11 @@ export interface EquipmentRisk {
             }
           </div>
         </div>
+      }
+
+      <!-- ONGLET 6 : CARTOGRAPHIE DES FLUX SANKEY (APACHE ECHARTS) -->
+      @if (activeTab() === 'sankey') {
+        <app-energy-sankey></app-energy-sankey>
       }
 
     </div>
@@ -1606,7 +1621,7 @@ export class OperateurDashboardComponent implements OnInit, OnDestroy {
   schedulerService = inject(SystemSchedulerService);
   router = inject(Router);
 
-  activeTab = signal<'overview' | 'forecast' | 'dispatching' | 'maintenance' | 'scheduler'>('overview');
+  activeTab = signal<'overview' | 'forecast' | 'dispatching' | 'maintenance' | 'scheduler' | 'sankey'>('overview');
   selectedGovernorate = signal<Governorate | null>(null);
   statusFilter = signal<string>('ALL');
 
@@ -1635,19 +1650,22 @@ export class OperateurDashboardComponent implements OnInit, OnDestroy {
       this.activeTab.set('maintenance');
     } else if (url.includes('/operateur/scheduler')) {
       this.activeTab.set('scheduler');
+    } else if (url.includes('/operateur/sankey')) {
+      this.activeTab.set('sankey');
     } else {
       this.activeTab.set('overview');
     }
   }
 
-  setTab(tab: 'overview' | 'forecast' | 'dispatching' | 'maintenance' | 'scheduler'): void {
+  setTab(tab: 'overview' | 'forecast' | 'dispatching' | 'maintenance' | 'scheduler' | 'sankey'): void {
     this.activeTab.set(tab);
     const routeMap: Record<string, string> = {
       overview: '/operateur/dashboard',
       forecast: '/operateur/load-forecast',
       dispatching: '/operateur/outages',
       maintenance: '/operateur/maintenance',
-      scheduler: '/operateur/scheduler'
+      scheduler: '/operateur/scheduler',
+      sankey: '/operateur/sankey'
     };
     if (routeMap[tab]) {
       this.router.navigateByUrl(routeMap[tab]);
