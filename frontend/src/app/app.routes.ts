@@ -85,6 +85,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/operateur/dashboard/dashboard.component').then(m => m.OperateurDashboardComponent)
   },
   {
+    path: 'operateur/sankey',
+    canActivate: [authGuard, roleGuard(['OPERATEUR', 'ADMIN'])],
+    loadComponent: () => import('./features/operateur/dashboard/dashboard.component').then(m => m.OperateurDashboardComponent)
+  },
+  {
     path: 'operateur/fraud',
     canActivate: [authGuard, roleGuard(['OPERATEUR', 'ADMIN'])],
     loadComponent: () => import('./features/operateur/fraud/fraud.component').then(m => m.FraudComponent)
