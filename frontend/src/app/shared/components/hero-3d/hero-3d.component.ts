@@ -9,6 +9,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 @Component({
   selector: 'app-hero-3d',
@@ -43,15 +46,21 @@ export class Hero3dComponent implements OnInit, OnDestroy {
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
+  private composer: EffectComposer | null = null;
   private animFrameId: number | null = null;
   private mainGroup = new THREE.Group();
   private turbines: THREE.Group[] = [];
   private sunMesh!: THREE.Mesh;
+  private glowMesh!: THREE.Mesh;
 
   private mouseX = 0;
   private mouseY = 0;
   private targetRotX = 0;
   private targetRotY = 0;
+
+  // Position caméra initiale pour animation scroll
+  private baseCameraY = 3.8;
+  private baseCameraZ = 10.5;
 
   constructor(private ngZone: NgZone) {}
 
@@ -63,6 +72,22 @@ export class Hero3dComponent implements OnInit, OnDestroy {
     this.cleanup();
   }
 
+  public updateScrollProgress(progress: number): void {
+    // Permet d'avancer doucement la caméra dans la ville et d'élever le soleil
+    const p = Math.max(0, Math.min(1, progress));
+    if (this.camera) {
+      this.camera.position.y = this.baseCameraY - (p * 0.9);
+      this.camera.position.z = this.baseCameraZ - (p * 2.8);
+      this.camera.lookAt(0, 0.8 - (p * 0.3), 0);
+    }
+    if (this.sunMesh) {
+      this.sunMesh.position.y = 4.2 + (p * 1.5);
+      if (this.glowMesh) {
+        this.glowMesh.position.y = this.sunMesh.position.y;
+      }
+    }
+  }
+
   private initThree(): void {
     try {
       const width = this.containerRef.nativeElement.clientWidth || window.innerWidth;
@@ -71,7 +96,7 @@ export class Hero3dComponent implements OnInit, OnDestroy {
       this.scene = new THREE.Scene();
 
       this.camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
-      this.camera.position.set(0, 3.8, 10.5);
+      this.camera.position.set(0, this.baseCameraY, this.baseCameraZ);
       this.camera.lookAt(0, 0.8, 0);
 
       this.renderer = new THREE.WebGLRenderer({
@@ -82,12 +107,27 @@ export class Hero3dComponent implements OnInit, OnDestroy {
       });
       this.renderer.setSize(width, height);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.08;
+
+      // Configuration Post-processing Bloom pour lueur aube/soleil
+      const renderScene = new RenderPass(this.scene, this.camera);
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(width, height),
+        0.85, // Intensité du halo doré
+        0.45, // Rayon de diffusion
+        0.78  // Seuil : seules les sources vives rayonnent
+      );
+
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.addPass(renderScene);
+      this.composer.addPass(bloomPass);
 
       // Éclairage aube chaleureux
       const ambientLight = new THREE.AmbientLight(0xFFF6E8, 1.3);
       this.scene.add(ambientLight);
 
-      const sunLight = new THREE.DirectionalLight(0xFFB703, 2.2);
+      const sunLight = new THREE.DirectionalLight(0xFFB703, 2.4);
       sunLight.position.set(6, 9, 6);
       this.scene.add(sunLight);
 
@@ -112,30 +152,30 @@ export class Hero3dComponent implements OnInit, OnDestroy {
   }
 
   private buildScene(): void {
-    // 1. Soleil doré lumineux en arrière-plan
+    // 1. Soleil doré lumineux en arrière-plan avec émissivité forte pour Bloom
     const sunGeo = new THREE.SphereGeometry(1.4, 32, 32);
     const sunMat = new THREE.MeshStandardMaterial({
       color: 0xFFB703,
       emissive: 0xFB8500,
-      emissiveIntensity: 0.85,
+      emissiveIntensity: 1.4,
       roughness: 0.1
     });
     this.sunMesh = new THREE.Mesh(sunGeo, sunMat);
     this.sunMesh.position.set(3.8, 4.2, -4.5);
     this.mainGroup.add(this.sunMesh);
 
-    // Halo autour du soleil
-    const glowGeo = new THREE.RingGeometry(1.45, 2.8, 32);
+    // Halo étendu autour du soleil
+    const glowGeo = new THREE.RingGeometry(1.45, 2.9, 32);
     const glowMat = new THREE.MeshBasicMaterial({
       color: 0xFFD166,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.5,
       side: THREE.DoubleSide
     });
-    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
-    glowMesh.position.copy(this.sunMesh.position);
-    glowMesh.position.z += 0.05;
-    this.mainGroup.add(glowMesh);
+    this.glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    this.glowMesh.position.copy(this.sunMesh.position);
+    this.glowMesh.position.z += 0.05;
+    this.mainGroup.add(this.glowMesh);
 
     // 2. Collines douces pastel (lever de soleil)
     const hillMat1 = new THREE.MeshStandardMaterial({ color: 0xB7E4C7, roughness: 0.7 });
@@ -269,6 +309,9 @@ export class Hero3dComponent implements OnInit, OnDestroy {
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(width, height);
+      if (this.composer) {
+        this.composer.setSize(width, height);
+      }
     }
   }
 
@@ -290,7 +333,12 @@ export class Hero3dComponent implements OnInit, OnDestroy {
     this.mainGroup.rotation.y += (this.targetRotY - this.mainGroup.rotation.y) * 0.05;
     this.mainGroup.rotation.x += (this.targetRotX - this.mainGroup.rotation.x) * 0.05;
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
+
     this.animFrameId = requestAnimationFrame(this.animate.bind(this));
   }
 
@@ -300,6 +348,11 @@ export class Hero3dComponent implements OnInit, OnDestroy {
     }
     window.removeEventListener('mousemove', this.onMouseMove.bind(this));
     window.removeEventListener('resize', this.onResize.bind(this));
+
+    if (this.composer) {
+      this.composer.dispose();
+      this.composer = null;
+    }
 
     if (this.scene) {
       this.scene.traverse((obj) => {
