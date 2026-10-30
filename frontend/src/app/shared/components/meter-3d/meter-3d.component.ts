@@ -12,6 +12,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 @Component({
   selector: 'app-meter-3d',
@@ -143,6 +146,7 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
+  private composer: EffectComposer | null = null;
   private animFrameId: number | null = null;
   private intersectionObserver: IntersectionObserver | null = null;
   private isVisible = true;
@@ -197,7 +201,7 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
     if (ringMat) {
       ringMat.color.setHex(colorHex);
       ringMat.emissive.setHex(colorHex);
-      ringMat.emissiveIntensity = 0.45;
+      ringMat.emissiveIntensity = 1.15; // Éclat néon électrique sous Bloom
     }
   }
 
@@ -210,6 +214,7 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
 
       this.camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
       this.camera.position.set(0, 0, 5.2);
+
       this.renderer = new THREE.WebGLRenderer({
         canvas: this.canvasRef.nativeElement,
         antialias: true,
@@ -218,6 +223,22 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
       });
       this.renderer.setSize(width, height);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.1;
+
+      // Post-processing Bloom pour l'anneau néon connecté
+      const renderScene = new RenderPass(this.scene, this.camera);
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(width, height),
+        1.1,  // Intensité de la lueur néon
+        0.35, // Rayon
+        0.65  // Seuil réactif
+      );
+
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.addPass(renderScene);
+      this.composer.addPass(bloomPass);
+
       const ambientLight = new THREE.AmbientLight(0xFFF9F0, 1.4);
       this.scene.add(ambientLight);
 
@@ -228,11 +249,14 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
       const skyRimLight = new THREE.PointLight(0x4CC9F0, 2.0, 10);
       skyRimLight.position.set(-3, -2, 3);
       this.scene.add(skyRimLight);
+
       this.buildMeterMesh();
       this.scene.add(this.meterGroup);
+
       this.containerRef.nativeElement.addEventListener('mousemove', this.onMouseMove.bind(this));
       this.containerRef.nativeElement.addEventListener('mouseleave', this.onMouseLeave.bind(this));
       window.addEventListener('resize', this.onResize.bind(this));
+
       this.ngZone.runOutsideAngular(() => {
         this.animate();
       });
@@ -265,12 +289,13 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
     dialMesh.position.z = 0.16;
     this.meterGroup.add(dialMesh);
 
-    // Anneau néon lumineux (Torus)
+    // Anneau néon lumineux (Torus) avec émissivité pour le bloom
     const ringGeo = new THREE.TorusGeometry(1.35, 0.065, 24, 64);
+    const colorHex = this.powerKw < 2.5 ? 0x52B788 : (this.powerKw < 4.8 ? 0xFFB703 : 0xFF6B6B);
     const ringMat = new THREE.MeshStandardMaterial({
-      color: 0xFFB703,
-      emissive: 0xFFB703,
-      emissiveIntensity: 0.5,
+      color: colorHex,
+      emissive: colorHex,
+      emissiveIntensity: 1.15,
       roughness: 0.2
     });
     this.ringMesh = new THREE.Mesh(ringGeo, ringMat);
@@ -296,7 +321,7 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
     const needleMat = new THREE.MeshStandardMaterial({
       color: 0x2A9DF4,
       emissive: 0x2A9DF4,
-      emissiveIntensity: 0.4,
+      emissiveIntensity: 0.6,
       roughness: 0.2
     });
     this.needleMesh = new THREE.Mesh(needleGeo, needleMat);
@@ -315,21 +340,21 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
     hubMesh.position.z = 0.3;
     this.meterGroup.add(hubMesh);
 
-    // Particules d'énergie flottantes douces (joie et énergie propre)
+    // Particules d'énergie flottantes douces
     const particleCount = 45;
     const particlePositions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      const r = 1.4 + Math.random() * 0.9;
+    for (let i = 0; i < particleCount * 3; i += 3) {
       const theta = Math.random() * Math.PI * 2;
-      particlePositions[i * 3] = Math.cos(theta) * r;
-      particlePositions[i * 3 + 1] = Math.sin(theta) * r;
-      particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 0.8;
+      const rad = 0.4 + Math.random() * 0.9;
+      particlePositions[i] = Math.cos(theta) * rad;
+      particlePositions[i + 1] = Math.sin(theta) * rad;
+      particlePositions[i + 2] = 0.24 + Math.random() * 0.3;
     }
     const particleGeo = new THREE.BufferGeometry();
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
     const particleMat = new THREE.PointsMaterial({
-      color: 0x4CC9F0,
-      size: 0.07,
+      color: 0xFFB703,
+      size: 0.05,
       transparent: true,
       opacity: 0.75
     });
@@ -341,8 +366,8 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
     const rect = this.containerRef.nativeElement.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-    this.targetRotY = x * 0.35;
-    this.targetRotX = -y * 0.35;
+    this.targetRotY = x * 0.25;
+    this.targetRotX = -y * 0.2;
   }
 
   private onMouseLeave(): void {
@@ -358,12 +383,14 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
       this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(width, height);
+      if (this.composer) {
+        this.composer.setSize(width, height);
+      }
     }
   }
 
   private animate(): void {
     if (!this.isVisible) {
-      // Économie de batterie/CPU si hors écran
       this.animFrameId = requestAnimationFrame(this.animate.bind(this));
       return;
     }
@@ -383,7 +410,12 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
     this.meterGroup.rotation.x += (this.targetRotX - this.meterGroup.rotation.x) * 0.08;
     this.meterGroup.rotation.y += (this.targetRotY - this.meterGroup.rotation.y) * 0.08;
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
+
     this.animFrameId = requestAnimationFrame(this.animate.bind(this));
   }
 
@@ -408,6 +440,11 @@ export class Meter3dComponent implements OnInit, OnDestroy, OnChanges {
       this.intersectionObserver = null;
     }
     window.removeEventListener('resize', this.onResize.bind(this));
+
+    if (this.composer) {
+      this.composer.dispose();
+      this.composer = null;
+    }
 
     if (this.scene) {
       this.scene.traverse((obj) => {
