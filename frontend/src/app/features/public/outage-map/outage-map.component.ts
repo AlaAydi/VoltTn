@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { OutageService } from '../../../core/services/outage.service';
 import { ElectricityService } from '../../../core/services/electricity.service';
 import { OutageReport } from '../../../models/outage.model';
-import { TunisiaLeafletMapComponent } from '../../../shared/components/tunisia-leaflet-map/tunisia-leaflet-map.component';
+import { TunisiaLeafletMapComponent, RegionalOutageCluster } from '../../../shared/components/tunisia-leaflet-map/tunisia-leaflet-map.component';
 import { WeatherService } from '../../../core/services/weather.service';
 
 @Component({
@@ -84,17 +84,33 @@ import { WeatherService } from '../../../core/services/weather.service';
       <!-- Disposition : Carte Leaflet Google Maps + Liste Latérale -->
       <div class="outages-layout">
         
-        <!-- Carte Réelle Leaflet Haute Performance -->
+        <!-- Carte Réelle Leaflet Haute Performance avec Clusters Tunisie -->
         <div class="map-view-column">
           <app-tunisia-leaflet-map
             [outages]="outageService.outages()"
             (outageSelected)="onSelectFromMap($event)"
+            (clusterSelected)="onClusterSelected($event)"
           ></app-tunisia-leaflet-map>
         </div>
 
         <!-- Fiche de détail ou Liste des signalements -->
         <div class="list-column">
           
+          @if (selectedCluster(); as cluster) {
+            <div class="region-filter-banner glass-card animate-float">
+              <div class="rf-info">
+                <span class="rf-badge">{{ cluster.count }}</span>
+                <div>
+                  <strong class="rf-title">{{ cluster.name }} ({{ cluster.nameAr }})</strong>
+                  <span class="rf-sub">{{ cluster.activeCount }} en cours • {{ cluster.resolvedCount }} résolus</span>
+                </div>
+              </div>
+              <button class="btn-mini-close" (click)="clearClusterFilter()" title="Voir toute la Tunisie">
+                <span class="material-symbols-rounded">close</span>
+              </button>
+            </div>
+          }
+
           @if (selectedItem(); as current) {
             <div class="detail-card glass-card animate-float">
               <div class="detail-header">
@@ -103,7 +119,7 @@ import { WeatherService } from '../../../core/services/weather.service';
                   <h3 class="detail-addr">{{ current.address }}</h3>
                   <span class="detail-gov">{{ current.district }}, {{ current.governorate }}</span>
                 </div>
-                <span class="glass-badge" [ngClass]="current.status === 'RESOLU' ? 'badge-nature' : 'badge-coral'">
+                <span class="glass-badge" [ngClass]="current.status === 'RESOLU' ? 'badge-nature' : (current.status === 'EN_COURS' ? 'badge-sun' : 'badge-coral')">
                   {{ current.status === 'RESOLU' ? 'Rétabli' : (current.status === 'EN_COURS' ? 'En réparation' : 'Signalé') }}
                 </span>
               </div>
@@ -114,11 +130,11 @@ import { WeatherService } from '../../../core/services/weather.service';
                   <strong class="d-val text-coral">{{ current.affectedCustomers | number }}</strong>
                 </div>
                 <div class="d-item">
-                  <span class="d-lbl">Type de panne :</span>
+                  <span class="d-lbl">Type d'incident :</span>
                   <span class="d-val">{{ current.type }}</span>
                 </div>
                 <div class="d-item">
-                  <span class="d-lbl">Signalement :</span>
+                  <span class="d-lbl">Heure de signalement :</span>
                   <span class="d-val">{{ current.reportedAt }}</span>
                 </div>
                 <div class="d-item">
@@ -126,8 +142,8 @@ import { WeatherService } from '../../../core/services/weather.service';
                   <strong class="d-val highlight">{{ current.estimatedResolution }}</strong>
                 </div>
                 <div class="d-item">
-                  <span class="d-lbl">Équipe mandatée :</span>
-                  <span class="d-val">{{ current.assignedTechnician || 'Équipe de garde régionale' }}</span>
+                  <span class="d-lbl">Équipe technique STEG :</span>
+                  <span class="d-val">{{ current.assignedTechnician || 'Équipe d\\'intervention rapide' }}</span>
                 </div>
               </div>
 
@@ -143,11 +159,11 @@ import { WeatherService } from '../../../core/services/weather.service';
 
           <div class="cards-scroll-list">
             <div class="list-title-row">
-              <span class="l-title">Derniers Signalements Réseau</span>
-              <span class="l-count">{{ outageService.outages().length }} incidents</span>
+              <span class="l-title">{{ selectedCluster() ? 'Incidents dans la zone sélectionnée' : 'Tous les Incidents Signalés' }}</span>
+              <span class="l-count">{{ displayedOutages().length }} incidents</span>
             </div>
 
-            @for (outage of outageService.outages(); track outage.id) {
+            @for (outage of displayedOutages(); track outage.id) {
               <div 
                 class="outage-list-item glass-panel"
                 [class.selected]="selectedItem()?.id === outage.id"
@@ -277,7 +293,7 @@ import { WeatherService } from '../../../core/services/weather.service';
       display: flex;
       flex-direction: column;
       gap: 16px;
-      max-height: 580px;
+      max-height: 680px;
     }
 
     .list-title-row {
@@ -417,6 +433,59 @@ import { WeatherService } from '../../../core/services/weather.service';
       margin-top: 4px;
     }
 
+    .region-filter-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 248, 235, 0.95);
+      border: 1.5px solid var(--sun-gold);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
+
+      .rf-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .rf-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--sun-gold);
+        color: #3d2b05;
+        font-weight: 800;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .rf-title {
+        font-size: 13.5px;
+        color: var(--text-main);
+        display: block;
+      }
+      .rf-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .btn-mini-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        padding: 4px;
+        border-radius: 50%;
+        &:hover {
+          background: rgba(255, 107, 107, 0.15);
+          color: var(--alert-coral);
+        }
+      }
+    }
+
     @media (max-width: 992px) {
       .outages-layout { grid-template-columns: 1fr; }
       .list-column { max-height: 400px; }
@@ -429,8 +498,33 @@ export class OutageMapComponent {
   weatherService = inject(WeatherService);
 
   selectedItem = signal<OutageReport | null>(null);
+  selectedCluster = signal<RegionalOutageCluster | null>(null);
 
   onSelectFromMap(outage: OutageReport): void {
     this.selectedItem.set(outage);
+  }
+
+  onClusterSelected(cluster: RegionalOutageCluster): void {
+    this.selectedCluster.set(cluster);
+    this.selectedItem.set(null);
+  }
+
+  clearClusterFilter(): void {
+    this.selectedCluster.set(null);
+  }
+
+  displayedOutages(): OutageReport[] {
+    const cluster = this.selectedCluster();
+    const all = this.outageService.outages();
+    if (!cluster) return all;
+
+    const query = cluster.name.toLowerCase();
+    const filtered = all.filter(o => 
+      query.includes(o.governorate.toLowerCase()) || 
+      o.governorate.toLowerCase().includes(query) ||
+      cluster.districts.some(d => o.district.toLowerCase().includes(d.toLowerCase()) || o.address.toLowerCase().includes(d.toLowerCase()))
+    );
+
+    return filtered.length > 0 ? filtered : all.slice(0, cluster.count);
   }
 }
