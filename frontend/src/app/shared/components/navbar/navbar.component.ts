@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { AuthService } from '@core/services/auth.service';
 import { I18nService } from '@core/services/i18n.service';
 import { NotificationService } from '@core/services/notification.service';
+import { CommandPaletteService } from '@core/services/command-palette.service';
 import { TranslatePipe } from '@shared/pipes/translate.pipe';
 
 @Component({
@@ -43,6 +44,12 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
         <!-- Outils droits : Notifications, Langue, Profil / Connexion -->
         <div class="navbar-actions">
           
+          <!-- Bouton Palette de Commandes (Ctrl + K) -->
+          <button class="action-btn cmd-btn" (click)="cmdService.toggle()" title="Palette de commandes rapide (Ctrl + K)">
+            <span class="material-symbols-rounded">search</span>
+            <span class="cmd-shortcut-tag">Ctrl K</span>
+          </button>
+
           <!-- Bouton Installation PWA Téléphone -->
           <button class="action-btn pwa-install-btn" (click)="installPwa()" title="Installer l'application PWA VoltTN">
             <span class="material-symbols-rounded">install_mobile</span>
@@ -446,6 +453,31 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
       gap: 8px;
     }
 
+    .cmd-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      width: auto !important;
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 183, 3, 0.35);
+
+      &:hover {
+        background: rgba(255, 183, 3, 0.15);
+        border-color: var(--sun-amber);
+      }
+    }
+
+    .cmd-shortcut-tag {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      background: rgba(29, 53, 87, 0.08);
+      padding: 2px 6px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
 
     @media (max-width: 1024px) {
       .desktop-only { display: none !important; }
@@ -454,6 +486,8 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
       .pwa-text { display: none; }
       .lang-text { display: none; }
       .action-btn.lang-btn { width: 40px; padding: 0; border-radius: 50%; }
+      .cmd-shortcut-tag { display: none; }
+      .cmd-btn { width: 40px !important; padding: 0; border-radius: 50%; justify-content: center; }
     }
 
     @media (max-width: 768px) {
@@ -500,6 +534,7 @@ export class NavbarComponent {
   authService = inject(AuthService);
   i18n = inject(I18nService);
   notifService = inject(NotificationService);
+  cmdService = inject(CommandPaletteService);
 
   showNotifDropdown = signal(false);
 
