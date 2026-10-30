@@ -1,4 +1,4 @@
-import { Component, inject, AfterViewInit } from '@angular/core';
+import { Component, inject, AfterViewInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Hero3dComponent } from '../../../shared/components/hero-3d/hero-3d.component';
@@ -18,7 +18,11 @@ import { gsap } from 'gsap';
       
       <section class="hero-section glass-card">
         
-        <app-hero-3d></app-hero-3d>
+        @defer (on viewport) {
+          <app-hero-3d #hero3d></app-hero-3d>
+        } @placeholder {
+          <div class="hero-3d-placeholder"></div>
+        }
 
         <div class="hero-content animate-float">
           <div class="hero-badge-pill">
@@ -250,6 +254,12 @@ import { gsap } from 'gsap';
       padding: 0 48px;
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 248, 238, 0.5) 100%);
       box-shadow: var(--shadow-lg);
+    }
+
+    .hero-3d-placeholder {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 75% 35%, rgba(255, 183, 3, 0.12) 0%, transparent 60%);
     }
 
     .hero-content {
@@ -595,12 +605,16 @@ import { gsap } from 'gsap';
     }
   `]
 })
-export class HomeComponent implements AfterViewInit {
+export class HomeComponent implements AfterViewInit, OnDestroy {
   authService = inject(AuthService);
   eleService = inject(ElectricityService);
   outageService = inject(OutageService);
 
+  @ViewChild(Hero3dComponent) hero3d?: Hero3dComponent;
+  private onScrollBound = this.handleScroll.bind(this);
+
   ngAfterViewInit(): void {
+    window.addEventListener('scroll', this.onScrollBound, { passive: true });
     try {
       const tl = gsap.timeline();
       tl.from('.hero-badge-pill', { opacity: 0, scale: 0.8, duration: 0.6, ease: 'back.out(1.7)' })
@@ -623,5 +637,17 @@ export class HomeComponent implements AfterViewInit {
     } catch (e) {
       console.warn('GSAP animation fallback:', e);
     }
+  }
+
+  private handleScroll(): void {
+    if (this.hero3d) {
+      const scrollY = window.scrollY || window.pageYOffset;
+      const progress = Math.min(1, Math.max(0, scrollY / 460));
+      this.hero3d.updateScrollProgress(progress);
+    }
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('scroll', this.onScrollBound);
   }
 }

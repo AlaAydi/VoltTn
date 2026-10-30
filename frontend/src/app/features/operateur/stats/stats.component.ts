@@ -2,10 +2,12 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ElectricityService } from '../../../core/services/electricity.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { EnergySankeyComponent } from '../../../shared/components/energy-sankey/energy-sankey.component';
+
 @Component({
   selector: 'app-stats',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, EnergySankeyComponent],
   template: `
     <div class="stats-page">
       
@@ -39,6 +41,9 @@ import { NotificationService } from '../../../core/services/notification.service
           </button>
         </div>
       </div>
+
+      <!-- Diagramme de Flux Énergétique National (Sankey ECharts) -->
+      <app-energy-sankey></app-energy-sankey>
 
       <!-- Synthèse par région -->
       <div class="table-card glass-card">
