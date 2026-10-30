@@ -79,6 +79,34 @@
   --transition-bounce: 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ==========================================================================
+   Material Symbols & Icons — Global Display & Font Fix
+   ========================================================================== */
+.material-symbols-rounded,
+.material-symbols-outlined,
+.material-icons {
+  font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga' 1;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  vertical-align: middle;
+  user-select: none;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
 /* Base Reset & Typography */
 * {
   box-sizing: border-box;
@@ -906,3 +934,215 @@ button, a, [role="button"], input[type="checkbox"], input[type="radio"], select 
   transition: color var(--transition-fast);
   &:hover { color: var(--sky-deep); }
 }
+
+/* ==========================================================================
+   Leaflet Custom Map Markers & Regional Clusters (Capture d'écran Tunisie)
+   ========================================================================== */
+.leaflet-custom-cluster,
+.custom-cluster-badge-icon {
+  background: transparent !important;
+  border: none !important;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: visible !important;
+}
+
+.cluster-badge-yellow,
+.cluster-circle-yellow {
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+  border-radius: 50% !important;
+  background: rgba(246, 201, 74, 0.88) !important;
+  border: 2.5px solid #d49817 !important;
+  box-shadow: 0 0 16px rgba(246, 201, 74, 0.65), 0 3px 8px rgba(0, 0, 0, 0.22) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  font-family: 'Inter', 'Nunito', sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #3b2802 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  box-sizing: border-box !important;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
+
+  &:hover {
+    transform: scale(1.18) !important;
+    background: rgba(246, 201, 74, 0.98) !important;
+    box-shadow: 0 0 22px rgba(246, 201, 74, 0.85), 0 5px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+}
+
+.cluster-badge-green,
+.cluster-circle-green {
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+  border-radius: 50% !important;
+  background: rgba(138, 224, 126, 0.88) !important;
+  border: 2.5px solid #439e36 !important;
+  box-shadow: 0 0 16px rgba(138, 224, 126, 0.65), 0 3px 8px rgba(0, 0, 0, 0.22) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  font-family: 'Inter', 'Nunito', sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #123b0f !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  box-sizing: border-box !important;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
+
+  &:hover {
+    transform: scale(1.18) !important;
+    background: rgba(138, 224, 126, 0.98) !important;
+    box-shadow: 0 0 22px rgba(138, 224, 126, 0.85), 0 5px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+}
+
+.cluster-badge-teal-pin,
+.cluster-pin-teal {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+  filter: drop-shadow(0 4px 10px rgba(0, 122, 135, 0.45)) !important;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+
+  &:hover {
+    transform: scale(1.2) translateY(-4px) !important;
+  }
+}
+
+/* Épingles Google Maps animées */
+.custom-google-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.google-maps-pin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  &:hover {
+    transform: scale(1.2) translateY(-4px);
+    z-index: 1000;
+  }
+
+  .pin-head {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    z-index: 2;
+
+    .pin-icon { font-size: 18px; }
+  }
+
+  .pin-tip {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    margin-top: -3px;
+    z-index: 1;
+  }
+
+  .pin-label {
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.92);
+    padding: 1px 6px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    white-space: nowrap;
+  }
+
+  &.pin-coral-pulse {
+    .pin-head { background: linear-gradient(135deg, #FF6B6B 0%, #D90429 100%); }
+    .pin-tip { border-top: 8px solid #D90429; }
+  }
+
+  &.pin-sun-pulse {
+    .pin-head { background: linear-gradient(135deg, #FFB703 0%, #FB8500 100%); }
+    .pin-tip { border-top: 8px solid #FB8500; }
+  }
+
+  &.pin-nature-pulse {
+    .pin-head { background: linear-gradient(135deg, #52B788 0%, #2D6A4F 100%); }
+    .pin-tip { border-top: 8px solid #2D6A4F; }
+  }
+}
+
+.custom-infra-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.google-pin-infra {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 4px 8px;
+  border-radius: 20px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(76, 201, 240, 0.6);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: scale(1.08);
+  }
+
+  .infra-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--sky-blue);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    .material-symbols-rounded { font-size: 13px; }
+  }
+
+  .infra-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+}
+
