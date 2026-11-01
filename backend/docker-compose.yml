@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: volttn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-volttn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-volttn} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [volttn]
+
+  identity:
+    build: ./identity-service
+    container_name: volttn-identity
+    env_file: .env
+    environment: {DB_NAME: volttn_identity, DB_HOST: postgres, DB_PORT: "5432"}
+    depends_on: {postgres: {condition: service_healthy}}
+    ports: ["8001:8000"]
+    restart: unless-stopped
+    networks: [volttn]
+
+  energy:
+    build: ./energy-service
+    container_name: volttn-energy
+    env_file: .env
+    environment: {DB_NAME: volttn_energy, DB_HOST: postgres, DB_PORT: "5432"}
+    depends_on: {postgres: {condition: service_healthy}}
+    ports: ["8002:8000"]
+    restart: unless-stopped
+    networks: [volttn]
+
+  operations:
+    build: ./operations-service
+    container_name: volttn-operations
+    env_file: .env
+    environment: {DB_NAME: volttn_operations, DB_HOST: postgres, DB_PORT: "5432"}
+    depends_on: {postgres: {condition: service_healthy}}
+    ports: ["8003:8000"]
+    restart: unless-stopped
+    networks: [volttn]
+
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: volttn-gateway
+    ports: ["8080:80"]
+    volumes: ["./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro"]
+    depends_on: [identity, energy, operations]
+    restart: unless-stopped
+    networks: [volttn]
+
+volumes:
+  postgres_data:
+networks:
+  volttn:
+    driver: bridge
