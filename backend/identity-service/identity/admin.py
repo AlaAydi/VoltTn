@@ -1,3 +1,6 @@
 from django.contrib import admin
-from django.contrib.auth import get_user_model
-admin.site.register(get_user_model())
+
+# Don't register User here to avoid admin validation errors with custom fields.
+# The default Django auth admin will use the default User model.
+# If a custom User admin is needed, it should be configured properly with
+# related field definitions that match the custom User model.

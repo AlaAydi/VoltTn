@@ -21,8 +21,13 @@ services:
     build: ./identity-service
     container_name: volttn-identity
     env_file: .env
-    environment: {DB_NAME: volttn_identity, DB_HOST: postgres, DB_PORT: "5432"}
-    depends_on: {postgres: {condition: service_healthy}}
+    environment:
+      DB_NAME: volttn_identity
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports: ["8001:8000"]
     restart: unless-stopped
     networks: [volttn]
@@ -31,8 +36,13 @@ services:
     build: ./energy-service
     container_name: volttn-energy
     env_file: .env
-    environment: {DB_NAME: volttn_energy, DB_HOST: postgres, DB_PORT: "5432"}
-    depends_on: {postgres: {condition: service_healthy}}
+    environment:
+      DB_NAME: volttn_energy
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports: ["8002:8000"]
     restart: unless-stopped
     networks: [volttn]
@@ -41,10 +51,23 @@ services:
     build: ./operations-service
     container_name: volttn-operations
     env_file: .env
-    environment: {DB_NAME: volttn_operations, DB_HOST: postgres, DB_PORT: "5432"}
-    depends_on: {postgres: {condition: service_healthy}}
+    environment:
+      DB_NAME: volttn_operations
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports: ["8003:8000"]
     restart: unless-stopped
+    networks: [volttn]
+
+  redis:
+    image: redis:7-alpine
+    container_name: volttn-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
     networks: [volttn]
 
   gateway:
